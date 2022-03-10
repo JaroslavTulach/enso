@@ -3,7 +3,7 @@
 //! - Sorting imports into groups (e.g. local imports, pub imports, etc.).
 //! - Sorting module attributes into groups.
 //! - Adding standard lint configuration to `lib.rs` and `main.rs` files.
-//! - (Currently disabled) Emitting warnings about star imports that are not ending with `traits::*`
+//! - [Currently disabled] Emitting warnings about star imports that are not ending with `traits::*`
 //!   nor `prelude::*`.
 //!
 //! Possible extensions, not implemented yet:
