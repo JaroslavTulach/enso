@@ -1084,13 +1084,19 @@ impl SceneData {
         let inv_object_matrix = object.transform_matrix().try_inverse().unwrap();
 
         let shape = camera.screen();
-        DEBUG!("Shape: {shape:?}");
+        // ERROR!("Shape: {shape:?}");
+        assert!(!shape.width.is_nan());
+        assert!(!shape.height.is_nan());
         let clip_space_z = origin_clip_space.z;
-        DEBUG!("clip_space_z: {clip_space_z:?}");
+        // ERROR!("clip_space_z: {clip_space_z:?}");
+        assert!(!clip_space_z.is_nan());
         let clip_space_x = origin_clip_space.w * 2.0 * screen_pos.x / shape.width;
-        DEBUG!("clip_space_x: {clip_space_x:?}");
+        // ERROR!("clip_space_x: {clip_space_x:?}");
+        assert!(!clip_space_x.is_nan(), "{shape:?}, {origin_clip_space:?}, {screen_pos:?}");
         let clip_space_y = origin_clip_space.w * 2.0 * screen_pos.y / shape.height;
-        DEBUG!("clip_space_y: {clip_space_y:?}");
+        // ERROR!("clip_space_y: {clip_space_y:?}");assert!(!clip_space_z.is_nan());
+        assert!(!clip_space_y.is_nan());
+
         let clip_space = Vector4(clip_space_x, clip_space_y, clip_space_z, origin_clip_space.w);
         let world_space = camera.inversed_view_projection_matrix() * clip_space;
         (inv_object_matrix * world_space).xy()

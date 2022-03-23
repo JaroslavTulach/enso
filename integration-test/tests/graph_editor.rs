@@ -6,11 +6,11 @@ use enso_integration_test::prelude::*;
 
 use approx::assert_abs_diff_eq;
 use enso_gui::view::graph_editor;
+use enso_gui::view::graph_editor::component::node as node_view;
 use enso_gui::view::graph_editor::component::node::Expression;
 use enso_gui::view::graph_editor::GraphEditor;
 use enso_gui::view::graph_editor::NodeId;
 use enso_gui::view::graph_editor::NodeSource;
-use enso_gui::view::graph_editor::component::node as node_view;
 use enso_web::sleep;
 use ensogl::display::navigation::navigator::ZoomEvent;
 use ordered_float::OrderedFloat;
@@ -181,8 +181,8 @@ async fn mouse_oriented_node_placement() {
     let gap_y = graph_editor.default_y_gap_between_nodes.value();
     let min_spacing = graph_editor.min_x_spacing_for_new_nodes.value();
 
-    let InitialNodes {above, below} = InitialNodes::obtain_from_graph_editor(&graph_editor);
-    let check_tab = |mouse_pos:Vector2, expected: Vector2| {
+    let InitialNodes { above, below } = InitialNodes::obtain_from_graph_editor(&graph_editor);
+    let check_tab = |mouse_pos: Vector2, expected: Vector2| {
         scene.mouse.frp.position.emit(mouse_pos);
         let expect_new_node = graph_editor.node_added.next_event();
         graph_editor.start_node_creation();
@@ -198,7 +198,7 @@ async fn mouse_oriented_node_placement() {
     check_tab(far_away, far_away_expect);
 
     let under_below = below.position().xy() + Vector2(30.0, -15.0);
-    let under_below_expect = below.position().xy() + Vector2(0.0, - gap_y - node_view::HEIGHT);
+    let under_below_expect = below.position().xy() + Vector2(0.0, -gap_y - node_view::HEIGHT);
     check_tab(under_below, under_below_expect);
 
     let under_above = above.position().xy() + Vector2(30.0, 15.0);

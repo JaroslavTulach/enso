@@ -20,11 +20,17 @@ use nalgebra::Perspective3;
 // ==============
 
 /// Camera's frustum screen dimensions.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 #[allow(missing_docs)]
 pub struct Screen {
     pub width:  f32,
     pub height: f32,
+}
+
+impl Default for Screen {
+    fn default() -> Self {
+        Self { width: 100.0, height: 100.0 }
+    }
 }
 
 impl Screen {
@@ -320,6 +326,7 @@ impl Camera2dData {
         }
         self.screen.width = width;
         self.screen.height = height;
+        assert_ne!(self.screen.width, 0.0);
         self.dirty.projection.set();
 
         match &self.projection {

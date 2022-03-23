@@ -67,6 +67,7 @@ function command(docs) {
 /// Build the project manager module, which downloads the project manager binary for the current
 /// platform.
 async function build_project_manager() {
+    await installJsDeps()
     console.log(`Getting project manager manager.`)
     await cmd.with_cwd(paths.ide_desktop.lib.projectManager, async () => {
         await run('npm', ['run-script build'])
@@ -285,7 +286,7 @@ commands['integration-test'].rust = async function (argv) {
     }
     try {
         console.log(`Running Rust WASM test suite.`)
-        process.env.WASM_BINDGEN_TEST_TIMEOUT = 180
+        process.env.WASM_BINDGEN_TEST_TIMEOUT = 300
         let args = [
             'test',
             '--headless',
