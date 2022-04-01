@@ -109,6 +109,8 @@ project/metals.sbt
 #################
 
 build-cache/
+.gradle
+build/
 
 ##################
 ## Native Image ##
