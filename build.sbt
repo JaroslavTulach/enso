@@ -178,7 +178,6 @@ ThisBuild / scalacOptions ++= Seq(
   "-Vimplicits",                        // Prints implicit resolution chains when no implicit can be found.
   "-Vtype-diffs",                       // Prints type errors as coloured diffs between types.
   "-Xcheckinit",                        // Wrap field accessors to throw an exception on uninitialized access.
-  "-Xfatal-warnings",                   // Make warnings fatal so they don't make it onto main (use @nowarn for local suppression)
   "-Xlint:adapted-args",                // Warn if an argument list is modified to match the receiver.
   "-Xlint:constant",                    // Evaluation of a constant arithmetic expression results in an error.
   "-Xlint:delayedinit-select",          // Selecting member of DelayedInit.
