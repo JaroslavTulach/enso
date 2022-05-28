@@ -286,11 +286,14 @@ class Compiler(
           freshNameSupply = Some(freshNameSupply),
           compilerConfig  = config
         )
+        val now = System.currentTimeMillis()
         val compilerOutput = runMethodBodyPasses(module.getIr, moduleContext)
+        val took = System.currentTimeMillis() - now
+        System.err.println("Compiler.runMethodBodyPasses took " + took + " ms for " + module);
         module.unsafeSetIr(compilerOutput)
         module.unsafeSetCompilationStage(
           Module.CompilationStage.AFTER_STATIC_PASSES
-        )
+          )
       }
     }
 
@@ -535,8 +538,15 @@ class Compiler(
     * @param source the code to parse
     * @return an AST representation of `source`
     */
-  def parse(source: Source): AST =
-    Parser().runWithIds(source.getCharacters.toString)
+  def parse(source: Source): AST = {
+    val now = System.currentTimeMillis()
+    try {
+      Parser().runWithIds(source.getCharacters.toString)
+    } finally {
+      val took = System.currentTimeMillis() - now
+      System.err.println("Compiler.parse took " + took + " ms for " + source.getURI())
+    }
+  }
 
   /** Parses the metadata of the provided language sources.
     *

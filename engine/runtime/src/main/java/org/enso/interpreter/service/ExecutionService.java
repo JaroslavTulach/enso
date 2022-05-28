@@ -148,6 +148,7 @@ public class ExecutionService {
       Consumer<Exception> onExceptionalCallback)
       throws ArityException, SourceNotFoundException, UnsupportedMessageException,
           UnsupportedTypeException {
+    long now = System.currentTimeMillis();
     SourceSection src = call.getFunction().getSourceSection();
     if (src == null) {
       throw new SourceNotFoundException(call.getFunction().getName());
@@ -172,6 +173,8 @@ public class ExecutionService {
     } finally {
       context.getThreadManager().leave(p);
       listener.dispose();
+      long took = System.currentTimeMillis() - now;
+      System.err.println("ExecutionService.execute took " + took + " ms for " + call);
     }
   }
 

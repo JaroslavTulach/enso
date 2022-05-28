@@ -285,7 +285,11 @@ public class Context {
    * @return the relevant module, if exists.
    */
   public Optional<Module> getModuleForFile(File path) {
-    return getModuleNameForFile(path).flatMap(n -> getTopScope().getModule(n.toString()));
+    var now = System.currentTimeMillis();
+    var ret = getModuleNameForFile(path).flatMap(n -> getTopScope().getModule(n.toString()));
+    var took = System.currentTimeMillis() - now;
+    System.err.println("Context.getModuleForFile took " + took + " ms for " + path);
+    return ret;
   }
 
   /**

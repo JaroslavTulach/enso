@@ -69,15 +69,21 @@ class EnsureCompiledJob(protected val files: Iterable[File])
   protected def ensureCompiledFiles(
     files: Iterable[File]
   )(implicit ctx: RuntimeContext): CompilationStatus = {
-    val modules = files.flatMap { file =>
-      ctx.executionService.getContext.getModuleForFile(file).toScala
-    }
-    val moduleCompilationStatus = modules.map(ensureCompiledModule)
-    val modulesInScope =
-      getModulesInScope.filterNot(m => modules.exists(_ == m))
-    val scopeCompilationStatus = ensureCompiledScope(modulesInScope)
-    (moduleCompilationStatus ++ scopeCompilationStatus).maxOption
-      .getOrElse(CompilationStatus.Success)
+    val now = System.currentTimeMillis()
+    try {
+      val modules = files.flatMap { file =>
+        ctx.executionService.getContext.getModuleForFile(file).toScala
+      }
+      val moduleCompilationStatus = modules.map(ensureCompiledModule)
+      val modulesInScope =
+        getModulesInScope.filterNot(m => modules.exists(_ == m))
+        val scopeCompilationStatus = ensureCompiledScope(modulesInScope)
+        (moduleCompilationStatus ++ scopeCompilationStatus).maxOption
+        .getOrElse(CompilationStatus.Success)
+      } finally {
+        val took = System.currentTimeMillis() - now
+        System.err.println("EnsureCompiledJob.ensureCompiledFiles took " + took + " ms for " + files)
+      }
   }
 
   /** Run the scheduled compilation and invalidation logic, and send the
@@ -324,6 +330,7 @@ class EnsureCompiledJob(protected val files: Iterable[File])
   private def applyEdits(
     file: File
   )(implicit ctx: RuntimeContext): Changeset[Rope] = {
+    val now = System.currentTimeMillis()
     ctx.locking.acquireFileLock(file)
     ctx.locking.acquireReadCompilationLock()
     try {
@@ -334,6 +341,8 @@ class EnsureCompiledJob(protected val files: Iterable[File])
     } finally {
       ctx.locking.releaseReadCompilationLock()
       ctx.locking.releaseFileLock(file)
+      val took = System.currentTimeMillis() - now
+      System.err.println("EnsureCompiledJob.applyEdits took " + took + " ms for " + file)
     }
   }
 
@@ -392,13 +401,17 @@ class EnsureCompiledJob(protected val files: Iterable[File])
     */
   private def sendModuleUpdate(
     payload: Api.SuggestionsDatabaseModuleUpdateNotification
-  )(implicit ctx: RuntimeContext): Unit =
+  )(implicit ctx: RuntimeContext): Unit = {
+    val now = System.currentTimeMillis()
     if (
       payload.actions.nonEmpty ||
       payload.exports.nonEmpty ||
       !payload.updates.isEmpty
-    ) {
-      ctx.endpoint.sendToClient(Api.Response(payload))
+      ) {
+        ctx.endpoint.sendToClient(Api.Response(payload))
+      }
+      val took = System.currentTimeMillis() - now
+      System.err.println("EnsureCompiledJob.sendModuleUpdate took " + took + " ms")
     }
 
   /** Send notification about the compilation status.
