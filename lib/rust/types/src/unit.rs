@@ -1,3 +1,6 @@
+//! # DEPRECATED!!!
+//! THIS MODULE IS DEPRECATED. USE `unit2` INSTEAD.
+//!
 //! Defines utilities for creating custom strongly typed units. For example, unit `Angle` could be a
 //! wrapper for `f32`.
 //!
@@ -370,7 +373,7 @@ macro_rules! newtype_struct_impls {
         /// Smart constructor.
         $(#$meta)*
         #[allow(non_snake_case)]
-        pub fn $name($field:$field_type) -> $name { $name {$field} }
+        pub const fn $name($field:$field_type) -> $name { $name {$field} }
 
         impl From<&$name>  for $name { fn from(t:&$name)  -> Self { *t } }
         impl From<&&$name> for $name { fn from(t:&&$name) -> Self { **t } }

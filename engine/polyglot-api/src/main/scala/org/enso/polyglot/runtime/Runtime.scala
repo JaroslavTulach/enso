@@ -7,7 +7,9 @@ import com.fasterxml.jackson.module.scala.{
   ClassTagExtensions,
   DefaultScalaModule
 }
+import org.enso.editions.LibraryName
 import org.enso.logger.masking.{MaskedPath, MaskedString, ToLogString}
+import org.enso.pkg.ComponentGroups
 import org.enso.polyglot.{ModuleExports, Suggestion}
 import org.enso.polyglot.data.{Tree, TypeGraph}
 import org.enso.text.ContentVersion
@@ -17,6 +19,7 @@ import org.enso.text.editing.model.{Range, TextEdit}
 import java.io.File
 import java.nio.ByteBuffer
 import java.util.UUID
+
 import scala.util.Try
 
 object Runtime {
@@ -73,6 +76,14 @@ object Runtime {
       new JsonSubTypes.Type(
         value = classOf[Api.RecomputeContextResponse],
         name  = "recomputeContextResponse"
+      ),
+      new JsonSubTypes.Type(
+        value = classOf[Api.GetComponentGroupsRequest],
+        name  = "getComponentGroupsRequest"
+      ),
+      new JsonSubTypes.Type(
+        value = classOf[Api.GetComponentGroupsResponse],
+        name  = "getComponentGroupsResponse"
       ),
       new JsonSubTypes.Type(
         value = classOf[Api.OpenFileNotification],
@@ -181,6 +192,10 @@ object Runtime {
       new JsonSubTypes.Type(
         value = classOf[Api.SuggestionsDatabaseModuleUpdateNotification],
         name  = "suggestionsDatabaseModuleUpdateNotification"
+      ),
+      new JsonSubTypes.Type(
+        value = classOf[Api.AnalyzeModuleInScopeJobFinished],
+        name  = "analyzeModuleInScopeJobFinished"
       ),
       new JsonSubTypes.Type(
         value = classOf[Api.InvalidateModulesIndexRequest],
@@ -1075,12 +1090,27 @@ object Runtime {
     ) extends ApiRequest
 
     /** A response sent from the server upon handling the
-      * [[RecomputeContextRequest]]
+      * [[RecomputeContextRequest]].
       *
       * @param contextId the context's id.
       */
     final case class RecomputeContextResponse(contextId: ContextId)
         extends ApiResponse
+
+    /** A request sent from the client to the runtime server to get the
+      * component groups loaded in runtime.
+      */
+    final case class GetComponentGroupsRequest() extends ApiRequest
+
+    /** A response sent from the server upon handling the
+      * [[GetComponentGroupsRequest]].
+      *
+      * @param componentGroups the mapping containing the loaded component
+      * groups
+      */
+    final case class GetComponentGroupsResponse(
+      componentGroups: Vector[(LibraryName, ComponentGroups)]
+    ) extends ApiResponse
 
     /** An error response signifying a non-existent context.
       *
@@ -1333,7 +1363,7 @@ object Runtime {
       module: String,
       version: ContentVersion,
       actions: Vector[SuggestionsDatabaseAction],
-      exports: Seq[ExportsUpdate],
+      exports: Vector[ExportsUpdate],
       updates: Tree[SuggestionUpdate]
     ) extends ApiNotification
         with ToLogString {
@@ -1348,6 +1378,9 @@ object Runtime {
         s"updates=${updates.map(_.toLogString(shouldMask))}" +
         ")"
     }
+
+    /** A notification about the finished background analyze job. */
+    final case class AnalyzeModuleInScopeJobFinished() extends ApiNotification
 
     /** A request to invalidate the indexed flag of the modules. */
     final case class InvalidateModulesIndexRequest() extends ApiRequest

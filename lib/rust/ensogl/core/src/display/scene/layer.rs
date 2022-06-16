@@ -14,6 +14,7 @@ use crate::display::shape::system::KnownShapeSystemId;
 use crate::display::shape::system::ShapeSystemId;
 use crate::display::shape::ShapeSystemInstance;
 use crate::display::symbol;
+use crate::display::symbol::RenderGroup;
 use crate::display::symbol::SymbolId;
 
 use enso_data_structures::dependency_graph::DependencyGraph;
@@ -164,6 +165,12 @@ impl Deref for Layer {
     }
 }
 
+impl AsRef<Layer> for Layer {
+    fn as_ref(&self) -> &Layer {
+        self
+    }
+}
+
 impl Debug for Layer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Debug::fmt(&*self.model, f)
@@ -179,6 +186,7 @@ impl Layer {
     }
 
     /// Constructor.
+    #[profile(Detail)]
     pub fn new_with_cam(logger: Logger, camera: &Camera2d) -> Self {
         let this = Self::new(logger);
         this.set_camera(camera);
@@ -189,6 +197,11 @@ impl Layer {
     pub fn downgrade(&self) -> WeakLayer {
         let model = Rc::downgrade(&self.model);
         WeakLayer { model }
+    }
+
+    /// Add the display object to this layer without removing it from other layers.
+    pub fn add(&self, object: impl display::Object) {
+        object.display_object().add_to_display_layer(self);
     }
 
     /// Add the display object to this layer and remove it from any other layers.
@@ -261,6 +274,24 @@ impl WeakLayer {
     pub fn upgrade(&self) -> Option<Layer> {
         self.model.upgrade().map(|model| Layer { model })
     }
+
+    /// Attach a `layer` as a sublayer. Will do nothing if the layer does not exist.
+    pub fn add_sublayer(&self, sublayer: &Layer) {
+        if let Some(layer) = self.upgrade() {
+            layer.add_sublayer(sublayer)
+        } else {
+            warning!(sublayer.logger, "Attempt to add a sublayer to deallocated layer.");
+        }
+    }
+
+    /// Remove previously attached sublayer. Will do nothing if the layer does not exist.
+    pub fn remove_sublayer(&self, sublayer: &Layer) {
+        if let Some(layer) = self.upgrade() {
+            layer.remove_sublayer(sublayer)
+        } else {
+            warning!(sublayer.logger, "Attempt to remove a sublayer from deallocated layer.");
+        }
+    }
 }
 
 impl Debug for WeakLayer {
@@ -294,7 +325,7 @@ pub struct LayerModel {
     shape_system_to_symbol_info_map: RefCell<HashMap<ShapeSystemId, ShapeSystemSymbolInfo>>,
     symbol_to_shape_system_map: RefCell<HashMap<SymbolId, ShapeSystemId>>,
     elements: RefCell<BTreeSet<LayerItem>>,
-    symbols_ordered: RefCell<Vec<SymbolId>>,
+    symbols_renderable: Rc<RefCell<RenderGroup>>,
     depth_order: RefCell<DependencyGraph<LayerItem>>,
     depth_order_dirty: dirty::SharedBool<OnDepthOrderDirty>,
     parents: Rc<RefCell<Vec<Sublayers>>>,
@@ -311,7 +342,7 @@ impl Debug for LayerModel {
             .field("id", &self.id().raw)
             .field("registry", &self.shape_system_registry)
             .field("elements", &self.elements.borrow().iter().collect_vec())
-            .field("symbols_ordered", &self.symbols_ordered.borrow().iter().collect_vec())
+            .field("symbols_renderable", &self.symbols_renderable)
             .finish()
     }
 }
@@ -334,13 +365,13 @@ impl LayerModel {
         let shape_system_to_symbol_info_map = default();
         let symbol_to_shape_system_map = default();
         let elements = default();
-        let symbols_ordered = default();
+        let symbols_renderable = default();
         let depth_order = default();
         let parents = default();
         let on_mut = on_depth_order_dirty(&parents);
         let depth_order_dirty = dirty::SharedBool::new(logger_dirty, on_mut);
         let global_element_depth_order = default();
-        let sublayers = Sublayers::new(Logger::new_sub(&logger, "registry"));
+        let sublayers = Sublayers::new(Logger::new_sub(&logger, "registry"), &parents);
         let mask = default();
         let scissor_box = default();
         let mem_mark = default();
@@ -351,7 +382,7 @@ impl LayerModel {
             shape_system_to_symbol_info_map,
             symbol_to_shape_system_map,
             elements,
-            symbols_ordered,
+            symbols_renderable,
             depth_order,
             depth_order_dirty,
             parents,
@@ -373,8 +404,8 @@ impl LayerModel {
     /// dependencies. Please note that this function does not update the depth-ordering of the
     /// elements. Updates are performed by calling the `update` method on [`Group`], which usually
     /// happens once per animation frame.
-    pub fn symbols(&self) -> Vec<SymbolId> {
-        self.symbols_ordered.borrow().clone()
+    pub fn symbols(&self) -> impl Deref<Target = RenderGroup> + '_ {
+        self.symbols_renderable.borrow()
     }
 
     /// Return the [`SymbolId`] of the provided [`LayerItem`] if it was added to the current
@@ -525,32 +556,40 @@ impl LayerModel {
         }
     }
 
-    /// Consume all dirty flags and update the ordering of elements if needed.
-    pub fn update(&self) {
+    /// Consume all dirty flags and update the ordering of elements if needed. Returns [`true`] if
+    /// the layer or its sub-layers were modified during this call.
+    pub fn update(&self) -> bool {
         self.update_internal(None)
     }
 
     /// Consume all dirty flags and update the ordering of elements if needed.
+    #[profile(Debug)]
     pub(crate) fn update_internal(
         &self,
         global_element_depth_order: Option<&DependencyGraph<LayerItem>>,
-    ) {
+    ) -> bool {
+        let mut was_dirty = false;
+
         if self.depth_order_dirty.check() {
+            was_dirty = true;
             self.depth_order_dirty.unset();
             self.depth_sort(global_element_depth_order);
         }
 
         if self.sublayers.element_depth_order_dirty.check() {
+            was_dirty = true;
             self.sublayers.element_depth_order_dirty.unset();
             for layer in self.sublayers() {
-                layer.update_internal(Some(&*self.global_element_depth_order.borrow()))
+                layer.update_internal(Some(&*self.global_element_depth_order.borrow()));
             }
             if let Some(layer) = &*self.mask.borrow() {
                 if let Some(layer) = layer.upgrade() {
-                    layer.update_internal(Some(&*self.global_element_depth_order.borrow()))
+                    layer.update_internal(Some(&*self.global_element_depth_order.borrow()));
                 }
             }
         }
+
+        was_dirty
     }
 
     /// Compute a combined [`DependencyGraph`] for the layer taking into consideration the global
@@ -603,7 +642,7 @@ impl LayerModel {
                 }
             })
             .collect();
-        *self.symbols_ordered.borrow_mut() = sorted_symbols;
+        self.symbols_renderable.borrow_mut().set(sorted_symbols);
     }
 }
 
@@ -624,10 +663,20 @@ impl LayerModel {
         self.sublayers.borrow().all()
     }
 
-    fn add_sublayer(&self, layer: &Layer) {
+    /// Attach a `layer` as a sublayer.
+    pub fn add_sublayer(&self, layer: &Layer) {
         let ix = self.sublayers.borrow_mut().layers.insert(layer.downgrade());
         self.sublayers.borrow_mut().layer_placement.insert(layer.id(), ix);
         layer.add_parent(&self.sublayers);
+    }
+
+    /// Remove previously attached sublayer.
+    ///
+    /// The implementation is the opposite of [`LayerModel::add_sublayer`]: we modify both fields of
+    /// [`SublayersModel`] and also unset parent.
+    pub fn remove_sublayer(&self, layer: &Layer) {
+        self.sublayers.borrow_mut().remove(layer.id());
+        layer.remove_parent(&self.sublayers);
     }
 
     fn remove_all_sublayers(&self) {
@@ -757,12 +806,14 @@ impl LayerModel {
     }
 }
 
-/// Unboxed callback.
+/// The callback setting `element_depth_order_dirty` in parents.
 pub type OnDepthOrderDirty = impl Fn();
 fn on_depth_order_dirty(parents: &Rc<RefCell<Vec<Sublayers>>>) -> OnDepthOrderDirty {
     let parents = parents.clone();
     move || {
         for parent in &*parents.borrow() {
+            // It's safe to do it having parents borrowed, because the only possible callback called
+            // [`OnElementDepthOrderDirty`], which don't borrow_mut at any point.
             parent.element_depth_order_dirty.set()
         }
     }
@@ -808,11 +859,24 @@ impl LayerDynamicShapeInstance {
 // === Sublayers ===
 // =================
 
+/// The callback propagating `element_depth_order_dirty` flag to parents.
+pub type OnElementDepthOrderDirty = impl Fn();
+fn on_element_depth_order_dirty(parents: &Rc<RefCell<Vec<Sublayers>>>) -> OnElementDepthOrderDirty {
+    let parents = parents.clone_ref();
+    move || {
+        for sublayers in parents.borrow().iter() {
+            // It's safe to do it having parents borrowed, because the only possible callback called
+            // [`OnElementDepthOrderDirty`], which don't borrow_mut at any point.
+            sublayers.element_depth_order_dirty.set()
+        }
+    }
+}
+
 /// Abstraction for layer sublayers.
 #[derive(Clone, CloneRef, Debug)]
 pub struct Sublayers {
     model:                     Rc<RefCell<SublayersModel>>,
-    element_depth_order_dirty: dirty::SharedBool,
+    element_depth_order_dirty: dirty::SharedBool<OnElementDepthOrderDirty>,
 }
 
 impl Deref for Sublayers {
@@ -831,10 +895,11 @@ impl PartialEq for Sublayers {
 
 impl Sublayers {
     /// Constructor.
-    pub fn new(logger: impl AnyLogger) -> Self {
+    pub fn new(logger: impl AnyLogger, parents: &Rc<RefCell<Vec<Sublayers>>>) -> Self {
         let element_dirty_logger = Logger::new_sub(&logger, "dirty");
         let model = default();
-        let element_depth_order_dirty = dirty::SharedBool::new(element_dirty_logger, ());
+        let dirty_on_mut = on_element_depth_order_dirty(parents);
+        let element_depth_order_dirty = dirty::SharedBool::new(element_dirty_logger, dirty_on_mut);
         Self { model, element_depth_order_dirty }
     }
 }
@@ -874,6 +939,46 @@ impl SublayersModel {
     /// Query a [`Layer`] based on its [`LayerId`].
     pub fn get(&self, layer_id: LayerId) -> Option<Layer> {
         self.layer_ix(layer_id).and_then(|ix| self.layers.safe_index(ix).and_then(|t| t.upgrade()))
+    }
+}
+
+
+
+// ==============
+// === Masked ===
+// ==============
+
+/// A layer with an attached mask. Each shape in the `mask_layer` defines the renderable area
+/// of the `masked_layer`. See [`Layer`] docs for the info about masking.
+///
+/// One of the use cases might be an `ensogl_scroll_area::ScrollArea` component
+/// implementation. To clip the area's content (so that it is displayed only inside its borders) we
+/// place the area's content in the `masked_object` layer; and we place a rectangular mask in the
+/// `mask` layer.
+///
+/// We need to store `mask_layer`, because [`LayerModel::set_mask`] uses [`WeakLayer`] internally,
+/// so the [`Layer`] would be deallocated otherwise.
+#[derive(Debug, Clone, CloneRef, Deref)]
+#[allow(missing_docs)]
+pub struct Masked {
+    #[deref]
+    pub masked_layer: Layer,
+    pub mask_layer:   Layer,
+}
+
+impl AsRef<Layer> for Masked {
+    fn as_ref(&self) -> &Layer {
+        &self.masked_layer
+    }
+}
+
+impl Masked {
+    /// Constructor. The passed [`camera`] is used to render created layers.
+    pub fn new(logger: &Logger, camera: &Camera2d) -> Self {
+        let masked_layer = Layer::new_with_cam(logger.sub("MaskedLayer"), camera);
+        let mask_layer = Layer::new_with_cam(logger.sub("MaskLayer"), camera);
+        masked_layer.set_mask(&mask_layer);
+        Self { masked_layer, mask_layer }
     }
 }
 
@@ -1097,6 +1202,9 @@ impl<T> ShapeSystemInfoTemplate<T> {
 /// scene.layers.add_shapes_order_dependency::<shape::View, input::port::hover::View>();
 /// scene.layers.add_shapes_order_dependency::<input::port::hover::View, input::port::viz::View>();
 /// ```
+///
+/// A shape listed on the left side of an arrow (`->`) will be ordered below the shape listed on
+/// the right side of the arrow.
 #[macro_export]
 macro_rules! shapes_order_dependencies {
     ($scene:expr => {

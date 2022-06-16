@@ -265,26 +265,18 @@ aggregate_column = here.aggregate_table.at "transaction_id"
 
 ## A simple table that contains basic shop inventory data for the food shop.
 inventory_table : Table.Table
-inventory_table = Table.from_csv here.csv . set_index "item_id"
+inventory_table = here.csv.read . set_index "item_id"
 
 ## A simple table that contains basic item popularity data for the food shop.
 popularity_table : Table.Table
 popularity_table =
-    table = Table.from_csv <| Enso_Project.data / "food_shop_popularity.csv"
+    table = (Enso_Project.data / "food_shop_popularity.csv") . read
     table.set_index "item_id"
 
 ## A simple tablethat contains basic transaction data for the food shop.
 transactions_table : Table.Table
 transactions_table =
-    Table.from_csv <| Enso_Project.data / "food_shop_transactions.csv"
-
-## An aggregate table for the relevant examples.
-aggregate_table : Table.Aggregate_Table
-aggregate_table =
-    transactions = here.transactions_table
-    item_names = here.inventory_table.at "item_name"
-    with_names = transactions.join item_names on="item_id"
-    with_names.group by="item_name"
+    (Enso_Project.data / "food_shop_transactions.csv") . read
 
 ## An example regex match.
 match : Default_Engine.Match

@@ -115,6 +115,8 @@ public class ModuleScope implements TruffleObject {
     Map<String, Function> methodMap = ensureMethodMapFor(atom);
 
     if (methodMap.containsKey(method)) {
+      // Builtin types will have double definition because of
+      // BuiltinMethod and that's OK
       throw new RedefinedMethodException(atom.getName(), method);
     } else {
       methodMap.put(method, function);
@@ -127,9 +129,7 @@ public class ModuleScope implements TruffleObject {
    * @param cons the constructor for which method map is requested
    * @return a list containing all the defined conversions in definition order
    */
-  private Map<AtomConstructor,Function> ensureConversionsFor(AtomConstructor cons) {
-    //var methods = ensureMethodMapFor(cons);
-    //methods.
+  private Map<AtomConstructor, Function> ensureConversionsFor(AtomConstructor cons) {
     return conversions.computeIfAbsent(cons, k -> new HashMap<>());
   }
 
@@ -141,7 +141,6 @@ public class ModuleScope implements TruffleObject {
     return result;
   }
 
-
   /**
    * Registers a conversion method for a given type
    *
@@ -149,7 +148,8 @@ public class ModuleScope implements TruffleObject {
    * @param fromType type the conversion was defined from
    * @param function the {@link Function} associated with this definition
    */
-  public void registerConversionMethod(AtomConstructor toType, AtomConstructor fromType, Function function) {
+  public void registerConversionMethod(
+      AtomConstructor toType, AtomConstructor fromType, Function function) {
     Map<AtomConstructor, Function> sourceMap = ensureConversionsFor(toType);
     if (sourceMap.containsKey(fromType)) {
       throw new RedefinedConversionException(toType.getName(), fromType.getName());
@@ -196,10 +196,12 @@ public class ModuleScope implements TruffleObject {
     if (definedWithAtom != null) {
       return definedWithAtom;
     }
+
     Function definedHere = getMethodMapFor(atom).get(lowerName);
     if (definedHere != null) {
       return definedHere;
     }
+
     return imports.stream()
         .map(scope -> scope.getExportedMethod(atom, name))
         .filter(Objects::nonNull)
@@ -218,11 +220,10 @@ public class ModuleScope implements TruffleObject {
       return definedHere;
     }
     return imports.stream()
-            .map(scope -> scope.getExportedConversion(atom, target))
-            .filter(Objects::nonNull)
-            .findFirst()
-            .orElse(null);
-
+        .map(scope -> scope.getExportedConversion(atom, target))
+        .filter(Objects::nonNull)
+        .findFirst()
+        .orElse(null);
   }
 
   private Function getExportedMethod(AtomConstructor atom, String name) {
@@ -243,10 +244,10 @@ public class ModuleScope implements TruffleObject {
       return here;
     }
     return exports.stream()
-            .map(scope -> scope.getConversionsFor(target).get(atom))
-            .filter(Objects::nonNull)
-            .findFirst()
-            .orElse(null);
+        .map(scope -> scope.getConversionsFor(target).get(atom))
+        .filter(Objects::nonNull)
+        .findFirst()
+        .orElse(null);
   }
 
   /**

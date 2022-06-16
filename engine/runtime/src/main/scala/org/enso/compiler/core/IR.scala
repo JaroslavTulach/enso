@@ -277,6 +277,9 @@ object IR {
       "Empty IR: Please report this as a compiler bug."
 
     /** @inheritdoc */
+    override def diagnosticKeys(): Array[Any] = Array()
+
+    /** @inheritdoc */
     override def showCode(indent: Int): String = "IR.Empty"
   }
 
@@ -936,6 +939,105 @@ object IR {
         ): Definition
       }
       object Definition {
+
+        /** The definition of a union type and its members.
+          *
+          * NB: this should probably be removed once we propagate the union
+          * types logic through the runtime and implement statics – the whole
+          * notion of desugaring complex type definitions becomes obsolete then.
+          *
+          * @param name the name of the union
+          * @param members the members of this union
+          * @param location the source location that the node corresponds to
+          * @param passData the pass metadata associated with this node
+          * @param diagnostics compiler diagnostics for this node
+          */
+        sealed case class UnionType(
+          name: IR.Name,
+          members: List[IR.Name],
+          override val location: Option[IdentifiedLocation],
+          override val passData: MetadataStorage      = MetadataStorage(),
+          override val diagnostics: DiagnosticStorage = DiagnosticStorage()
+        ) extends Definition
+            with IRKind.Primitive {
+          override protected var id: Identifier = randomId
+
+          def copy(
+            name: IR.Name                        = name,
+            members: List[IR.Name]               = members,
+            location: Option[IdentifiedLocation] = location,
+            passData: MetadataStorage            = passData,
+            diagnostics: DiagnosticStorage       = diagnostics,
+            id: Identifier                       = id
+          ): UnionType = {
+            val res = UnionType(name, members, location, passData, diagnostics)
+            res.id = id
+            res
+          }
+
+          /** @inheritdoc */
+          override def duplicate(
+            keepLocations: Boolean   = true,
+            keepMetadata: Boolean    = true,
+            keepDiagnostics: Boolean = true,
+            keepIdentifiers: Boolean = false
+          ): UnionType =
+            copy(
+              name = name.duplicate(
+                keepLocations,
+                keepMetadata,
+                keepDiagnostics,
+                keepIdentifiers
+              ),
+              members = members.map(
+                _.duplicate(
+                  keepLocations,
+                  keepMetadata,
+                  keepDiagnostics,
+                  keepIdentifiers
+                )
+              ),
+              location = if (keepLocations) location else None,
+              passData =
+                if (keepMetadata) passData.duplicate else MetadataStorage(),
+              diagnostics =
+                if (keepDiagnostics) diagnostics.copy else DiagnosticStorage(),
+              id = if (keepIdentifiers) id else randomId
+            )
+
+          /** @inheritdoc */
+          override def setLocation(
+            location: Option[IdentifiedLocation]
+          ): UnionType =
+            copy(location = location)
+
+          /** @inheritdoc */
+          override def mapExpressions(fn: Expression => Expression): UnionType =
+            this
+
+          /** @inheritdoc */
+          override def toString: String =
+            s"""
+               |IR.Module.Scope.Definition.UnionType(
+               |name = $name,
+               |members = $members,
+               |location = $location,
+               |passData = ${this.showPassData},
+               |diagnostics = $diagnostics,
+               |id = $id
+               |)
+               |""".toSingleLine
+
+          /** @inheritdoc */
+          override def children: List[IR] = name :: members
+
+          /** @inheritdoc */
+          override def showCode(indent: Int): String = {
+            val fields = members.map(_.showCode(indent)).mkString(" | ")
+
+            s"type ${name.showCode(indent)} = $fields"
+          }
+        }
 
         /** The definition of an atom constructor and its associated arguments.
           *
@@ -1972,6 +2074,42 @@ object IR {
         * @return `true` if the value is fractional, `false` otherwise.
         */
       def isFractional: Boolean = value.contains(".")
+
+      /** Checks the values in the literal converts that to approviate JVM value.
+        * @return Double, Long, BigInteger
+        */
+      @throws[CompilerError]
+      def numericValue: Any = {
+        if (isFractional) {
+          value.toDouble
+        } else if (base.isDefined) {
+          val baseNum =
+            try {
+              Integer.parseInt(base.get)
+            } catch {
+              case _: NumberFormatException =>
+                throw new CompilerError(
+                  s"Invalid number base $base seen during codegen."
+                )
+            }
+          try {
+            val longVal = java.lang.Long.parseLong(value, baseNum)
+            longVal
+          } catch {
+            case _: NumberFormatException =>
+              try {
+                new java.math.BigInteger(value, baseNum)
+              } catch {
+                case _: NumberFormatException =>
+                  throw new CompilerError(
+                    s"Invalid number base $base seen during codegen."
+                  )
+              }
+          }
+        } else {
+          value.toLongOption.getOrElse(new java.math.BigInteger(value))
+        }
+      }
     }
 
     /** A textual Enso literal.
@@ -2049,7 +2187,7 @@ object IR {
       override def children: List[IR] = List()
 
       /** @inheritdoc */
-      override def showCode(indent: Int): String = s"\"$text\""
+      override def showCode(indent: Int): String = s""""$text""""
     }
   }
 
@@ -4312,7 +4450,7 @@ object IR {
         res
       }
 
-      override def withName(ir: Name): DefinitionArgument = copy(name=ir)
+      override def withName(ir: Name): DefinitionArgument = copy(name = ir)
 
       /** @inheritdoc */
       override def duplicate(
@@ -5310,15 +5448,6 @@ object IR {
     /** The expression of the argument, if present. */
     val value: Expression
 
-    /** Whether or not the argument should be suspended at code generation time.
-      *
-      * A value of `Some(true)` implies that code generation should suspend the
-      * argument. A value of `Some(false)` implies that code generation should
-      * _not_ suspend the argument. A value of [[None]] implies that the
-      * information is missing.
-      */
-    val shouldBeSuspended: Option[Boolean]
-
     /** @inheritdoc */
     override def mapExpressions(fn: Expression => Expression): CallArgument
 
@@ -5340,21 +5469,18 @@ object IR {
       * A [[CallArgument]] where the `value` is an [[IR.Name.Blank]] is a
       * representation of a lambda shorthand argument.
       *
-      * @param name the name of the argument being called, if present
-      * @param value the expression being passed as the argument's value
-      * @param location the source location that the node corresponds to
-      * @param shouldBeSuspended whether or not the argument should be passed
-      *        suspended
-      * @param passData the pass metadata associated with this node
+      * @param name        the name of the argument being called, if present
+      * @param value       the expression being passed as the argument's value
+      * @param location    the source location that the node corresponds to
+      * @param passData    the pass metadata associated with this node
       * @param diagnostics compiler diagnostics for this node
       */
     sealed case class Specified(
       override val name: Option[IR.Name],
       override val value: Expression,
       override val location: Option[IdentifiedLocation],
-      override val shouldBeSuspended: Option[Boolean] = None,
-      override val passData: MetadataStorage          = MetadataStorage(),
-      override val diagnostics: DiagnosticStorage     = DiagnosticStorage()
+      override val passData: MetadataStorage      = MetadataStorage(),
+      override val diagnostics: DiagnosticStorage = DiagnosticStorage()
     ) extends CallArgument
         with IRKind.Primitive {
       override protected var id: Identifier = randomId
@@ -5375,7 +5501,6 @@ object IR {
         name: Option[IR.Name]                = name,
         value: Expression                    = value,
         location: Option[IdentifiedLocation] = location,
-        shouldBeSuspended: Option[Boolean]   = shouldBeSuspended,
         passData: MetadataStorage            = passData,
         diagnostics: DiagnosticStorage       = diagnostics,
         id: Identifier                       = id
@@ -5384,7 +5509,6 @@ object IR {
           name,
           value,
           location,
-          shouldBeSuspended,
           passData,
           diagnostics
         )
@@ -5439,7 +5563,6 @@ object IR {
         |name = $name,
         |value = $value,
         |location = $location,
-        |shouldBeSuspended = $shouldBeSuspended,
         |passData = ${this.showPassData},
         |diagnostics = $diagnostics,
         |id = $id
@@ -6273,6 +6396,10 @@ object IR {
 
     /** The location at which the diagnostic occurs. */
     val location: Option[IdentifiedLocation]
+
+    /** The important keys identifying identity of the diagnostic
+      */
+    def diagnosticKeys(): Array[Any]
   }
   object Diagnostic {
 
@@ -6312,6 +6439,8 @@ object IR {
           extends Unused {
         override def message: String = s"Unused function argument ${name.name}."
 
+        override def diagnosticKeys(): Array[Any] = Array(name.name)
+
         override def toString: String = s"Unused.FunctionArgument(${name.name})"
 
         override val location: Option[IdentifiedLocation] = name.location
@@ -6319,6 +6448,8 @@ object IR {
 
       sealed case class PatternBinding(override val name: Name) extends Unused {
         override def message: String = s"Unused pattern binding ${name.name}."
+
+        override def diagnosticKeys(): Array[Any] = Array(name.name)
 
         override def toString: String = s"Unused.PatternBinding(${name.name})"
 
@@ -6331,6 +6462,8 @@ object IR {
         */
       sealed case class Binding(override val name: Name) extends Unused {
         override def message: String = s"Unused variable ${name.name}."
+
+        override def diagnosticKeys(): Array[Any] = Array(name.name)
 
         override def toString: String = s"Unused.Binding(${name.name})"
 
@@ -6356,6 +6489,8 @@ object IR {
           else                    { ""                              }
 
         override def message: String = s"Unreachable case branches$atLocation."
+
+        override def diagnosticKeys(): Array[Any] = Array(atLocation)
       }
     }
 
@@ -6367,6 +6502,21 @@ object IR {
         extends Warning {
       override def message: String =
         "A @Tail_Call annotation was placed in a non-tail-call position."
+
+      override def diagnosticKeys(): Array[Any] = Array()
+    }
+
+    /** A warning about a `@Builtin_Method` annotation placed in a method
+      * with unexpected body.
+      * @param location the location of the annotated application
+      */
+    case class WrongBuiltinMethod(
+      override val location: Option[IdentifiedLocation]
+    ) extends Warning {
+      override def message: String =
+        "A @Builtin_Method annotation allows only the name of the builtin node in the body."
+
+      override def diagnosticKeys(): Array[Any] = Array()
     }
 
     /** Warnings about shadowing names. */
@@ -6391,6 +6541,9 @@ object IR {
       ) extends Shadowed {
         override def message: String =
           s"The argument $shadowedName is shadowed by $shadower."
+
+        override def diagnosticKeys(): Array[Any] =
+          Array(shadowedName, shadower)
       }
 
       /** A warning that a later-defined pattern variable shadows an
@@ -6407,6 +6560,9 @@ object IR {
       ) extends Shadowed {
         override def message: String =
           s"The pattern field $shadowedName is shadowed by $shadower."
+
+        override def diagnosticKeys(): Array[Any] =
+          Array(shadowedName, shadower)
       }
     }
 
@@ -6423,6 +6579,8 @@ object IR {
       override val location: Option[IdentifiedLocation] = ir.location
       override def message: String =
         s"The expression ${ir.showCode()} could not be parallelised: $reason."
+
+      override def diagnosticKeys(): Array[Any] = Array(ir.showCode(), reason)
     }
   }
 
@@ -6534,6 +6692,8 @@ object IR {
 
       /** @inheritdoc */
       override def message: String = reason.explain
+
+      override def diagnosticKeys(): Array[Any] = Array(reason.explain)
 
       /** @inheritdoc */
       override val location: Option[IdentifiedLocation] = storedIr.location
@@ -6662,6 +6822,8 @@ object IR {
       /** @inheritdoc */
       override def message: String = reason.explain(originalName)
 
+      override def diagnosticKeys(): Array[Any] = Array(reason)
+
       /** @inheritdoc */
       override val location: Option[IdentifiedLocation] = originalName.location
     }
@@ -6677,7 +6839,7 @@ object IR {
       case object UnresolvedSequenceMacro extends Reason {
         override def explain(originalName: Name): String =
           "No definition for the sequence macro could be found. Try" +
-          " importing the default definition from the Base.Data.Vector module."
+          " importing the default definition from the Standard.Base module."
       }
 
       /** An error coming from an unknown annotation name.
@@ -6829,6 +6991,8 @@ object IR {
 
       override def message: String = reason.explain
 
+      override def diagnosticKeys(): Array[Any] = Array(reason)
+
       override val location: Option[IdentifiedLocation] =
         originalPattern.location
 
@@ -6950,6 +7114,8 @@ object IR {
 
       /** @inheritdoc */
       override def message: String = reason.explanation
+
+      override def diagnosticKeys(): Array[Any] = Array(reason)
 
       /** @inheritdoc */
       override def showCode(indent: Int): String = "Syntax_Error"
@@ -7165,6 +7331,8 @@ object IR {
       override def message: String =
         "InvalidIR: Please report this as a compiler bug."
 
+      override def diagnosticKeys(): Array[Any] = Array()
+
       /** @inheritdoc */
       override def showCode(indent: Int): String = "Invalid_Ir"
     }
@@ -7254,6 +7422,8 @@ object IR {
         override def message: String =
           "Methods must have only one definition of the `this` argument, and " +
           "it must be the first."
+
+        override def diagnosticKeys(): Array[Any] = Array()
 
         /** @inheritdoc */
         override def children: List[IR] = List()
@@ -7351,6 +7521,9 @@ object IR {
         override def message: String =
           s"Method overloads are not supported: ${targetType.name}.from " +
           s"${sourceType.showCode()} is defined multiple times in this module."
+
+        override def diagnosticKeys(): Array[Any] =
+          Array(targetType.name, sourceType.showCode())
 
         /** @inheritdoc */
         override def mapExpressions(fn: Expression => Expression): Conversion =
@@ -7461,6 +7634,9 @@ object IR {
         override def message: String =
           s"Method overloads are not supported: ${atomName.name}." +
           s"${methodName.name} is defined multiple times in this module."
+
+        override def diagnosticKeys(): Array[Any] =
+          Array(atomName.name, methodName.name)
 
         /** @inheritdoc */
         override def mapExpressions(fn: Expression => Expression): Method = this
@@ -7579,6 +7755,9 @@ object IR {
           s"Method definitions with the same name as atoms are not supported. " +
           s"Method ${methodName.name} clashes with the atom ${atomName.name} in this module."
 
+        override def diagnosticKeys(): Array[Any] =
+          Array(methodName.name, atomName.name)
+
         /** @inheritdoc */
         override def mapExpressions(
           fn: Expression => Expression
@@ -7679,6 +7858,8 @@ object IR {
         override def message: String =
           s"Redefining atoms is not supported: ${atomName.name} is " +
           s"defined multiple times in this module."
+
+        override def diagnosticKeys(): Array[Any] = Array(atomName.name)
 
         /** @inheritdoc */
         override def mapExpressions(fn: Expression => Expression): Atom = this
@@ -7794,6 +7975,10 @@ object IR {
         override def message: String =
           s"Variable ${invalidBinding.name.name} is being redefined."
 
+        override def diagnosticKeys(): Array[Any] = Array(
+          invalidBinding.name.name
+        )
+
         /** @inheritdoc */
         override def showCode(indent: Int): String =
           s"(Redefined (Binding $invalidBinding))"
@@ -7813,6 +7998,9 @@ object IR {
 
       /** @inheritdoc */
       override def message: String = s"Unexpected $entity."
+
+      /** @inheritdoc */
+      override def diagnosticKeys(): Array[Any] = Array(entity)
 
       /** @inheritdoc */
       override def mapExpressions(fn: Expression => Expression): Unexpected
@@ -8034,6 +8222,8 @@ object IR {
 
       /** @inheritdoc */
       override def message: String = reason.message
+
+      override def diagnosticKeys(): Array[Any] = Array(reason)
 
       /** @inheritdoc */
       override def showCode(indent: Int): String = "Import_Export_Error"

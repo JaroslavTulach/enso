@@ -6,7 +6,7 @@ use enso_frp as frp;
 use ensogl_core::application::Application;
 use ensogl_core::display;
 use ensogl_core::display::shape::StyleWatchFrp;
-use ensogl_hardcoded_theme as theme;
+use ensogl_core::display::style::Path;
 use ensogl_text as text;
 
 
@@ -22,8 +22,6 @@ pub mod list;
 // === Constants ===
 // =================
 
-/// Padding inside entry in pixels.
-pub const PADDING: f32 = 14.0;
 /// The overall entry's height (including padding).
 pub const HEIGHT: f32 = 30.0;
 
@@ -48,23 +46,30 @@ pub use list::List;
 ///
 /// The entries should not assume any padding - it will be granted by ListView itself. The Display
 /// Object position of this component is docked to the middle of left entry's boundary. It differs
-/// from usual behaviour of EnsoGl components, but makes the entries alignment much simpler.
+/// from usual behaviour of EnsoGl components, but makes the entries' alignment much simpler.
 ///
 /// This trait abstracts over model and its updating in order to support re-using shapes and gui
 /// components, so they are not deleted and created again. The ListView component does not create
 /// Entry object for each entry provided, and during scrolling, the instantiated objects will be
-/// reused: they position will be changed and they will be updated using `update` method.
+/// reused: they position will be changed, and they will be updated using `update` method.
 pub trait Entry: CloneRef + Debug + display::Object + 'static {
     /// The model of this entry. The entry should be a representation of data from the Model.
     /// For example, the entry being just a caption can have [`String`] as its model - the text to
     /// be displayed.
     type Model: Debug + Default;
 
+    /// A type parametrizing the visual aspects of how the entry will be rendered in an instance of
+    /// [`crate::ListView`].
+    type Params: CloneRef + Debug + Default;
+
     /// An Object constructor.
-    fn new(app: &Application) -> Self;
+    fn new(app: &Application, style_prefix: &Path, params: &Self::Params) -> Self;
 
     /// Update content with new model.
     fn update(&self, model: &Self::Model);
+
+    /// Resize the entry's view to fit a new width.
+    fn set_max_width(&self, max_width_px: f32);
 
     /// Set the layer of all [`text::Area`] components inside. The [`text::Area`] component is
     /// handled in a special way, and is often in different layer than shapes. See TODO comment
@@ -80,42 +85,69 @@ pub trait Entry: CloneRef + Debug + display::Object + 'static {
 // === Label ===
 
 /// The [`Entry`] being a single text field displaying String.
+#[allow(missing_docs)]
 #[derive(Clone, CloneRef, Debug)]
 pub struct Label {
-    display_object: display::object::Instance,
-    label:          text::Area,
-    network:        enso_frp::Network,
-    style_watch:    StyleWatchFrp,
+    display_object:  display::object::Instance,
+    pub label:       text::Area,
+    text:            frp::Source<String>,
+    max_width_px:    frp::Source<f32>,
+    /// The `network` is public to allow extending it in components based on a [`Label`]. This
+    /// should only be done for components that are small extensions of a Label, where creating a
+    /// separate network for them would be an unnecessary overhead.
+    /// Note: Networks extending this field will not outlive [`Label`].
+    pub network:     enso_frp::Network,
+    pub style_watch: StyleWatchFrp,
 }
 
-impl Entry for Label {
-    type Model = String;
-
-    fn new(app: &Application) -> Self {
+impl Label {
+    /// Constructor.
+    pub fn new(app: &Application, style_prefix: &Path) -> Self {
         let logger = Logger::new("list_view::entry::Label");
         let display_object = display::object::Instance::new(logger);
         let label = app.new_view::<ensogl_text::Area>();
         let network = frp::Network::new("list_view::entry::Label");
         let style_watch = StyleWatchFrp::new(&app.display.default_scene.style_sheet);
-        let color = style_watch.get_color(theme::widget::list_view::text);
-        let size = style_watch.get_number(theme::widget::list_view::text::size);
+        let text_style = style_prefix.sub("text");
+        let font = style_watch.get_text(text_style.sub("font"));
+        let size = style_watch.get_number(text_style.sub("size"));
+        let color = style_watch.get_color(text_style);
 
         display_object.add_child(&label);
         frp::extend! { network
             init <- source::<()>();
+            text <- source::<String>();
+            max_width_px <- source::<f32>();
             color <- all(&color,&init)._0();
-            size  <- all(&size,&init)._0();
+            font <- all(&font,&init)._0();
+            size <- all(&size,&init)._0();
 
-            label.set_default_color     <+ color;
+            label.set_default_color <+ color;
+            label.set_font <+ font;
             label.set_default_text_size <+ size.map(|v| text::Size(*v));
             eval size ((size) label.set_position_y(size/2.0));
+
+            label.set_content_truncated <+ all(&text, &max_width_px);
         }
         init.emit(());
-        Self { display_object, label, network, style_watch }
+        Self { display_object, label, text, max_width_px, network, style_watch }
+    }
+}
+
+impl Entry for Label {
+    type Model = String;
+    type Params = ();
+
+    fn new(app: &Application, style_prefix: &Path, _params: &Self::Params) -> Self {
+        Self::new(app, style_prefix)
     }
 
     fn update(&self, model: &Self::Model) {
-        self.label.set_content(model);
+        self.text.emit(model.clone());
+    }
+
+    fn set_max_width(&self, max_width_px: f32) {
+        self.max_width_px.emit(max_width_px);
     }
 
     fn set_label_layer(&self, label_layer: &display::scene::Layer) {
@@ -143,28 +175,31 @@ pub struct GlyphHighlightedLabelModel {
 }
 
 /// The [`Entry`] similar to the [`Label`], but allows highlighting some parts of text.
+#[allow(missing_docs)]
 #[derive(Clone, CloneRef, Debug)]
 pub struct GlyphHighlightedLabel {
-    inner:     Label,
+    pub inner: Label,
     highlight: frp::Source<Vec<text::Range<text::Bytes>>>,
 }
 
 impl Entry for GlyphHighlightedLabel {
     type Model = GlyphHighlightedLabelModel;
+    type Params = ();
 
-    fn new(app: &Application) -> Self {
-        let inner = Label::new(app);
+    fn new(app: &Application, style_prefix: &Path, (): &Self::Params) -> Self {
+        let inner = Label::new(app, style_prefix);
         let network = &inner.network;
-        let highlight_color =
-            inner.style_watch.get_color(theme::widget::list_view::text::highlight);
+        let text_style = style_prefix.sub("text");
+        let highlight_bold = inner.style_watch.get_number(text_style.sub("highlight_bold"));
         let label = &inner.label;
 
         frp::extend! { network
             highlight <- source::<Vec<text::Range<text::Bytes>>>();
-            highlight_changed <- all(highlight,highlight_color);
-            eval highlight_changed ([label]((highlight,color)) {
+            content_changed <- label.content.constant(());
+            set_highlight <- all(highlight, highlight_bold, content_changed);
+            eval set_highlight ([label]((highlight, bold, ())) {
                 for range in highlight {
-                   label.set_color_bytes(range,color);
+                   label.set_sdf_bold(range, text::style::SdfBold::new(*bold));
                 }
             });
         }
@@ -174,6 +209,10 @@ impl Entry for GlyphHighlightedLabel {
     fn update(&self, model: &Self::Model) {
         self.inner.update(&model.label);
         self.highlight.emit(&model.highlighted);
+    }
+
+    fn set_max_width(&self, max_width_px: f32) {
+        self.inner.set_max_width(max_width_px);
     }
 
     fn set_label_layer(&self, layer: &display::scene::Layer) {

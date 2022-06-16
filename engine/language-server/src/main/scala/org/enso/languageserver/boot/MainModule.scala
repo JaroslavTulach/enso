@@ -20,7 +20,8 @@ import org.enso.languageserver.libraries._
 import org.enso.languageserver.monitoring.{
   HealthCheckEndpoint,
   IdlenessEndpoint,
-  IdlenessMonitor
+  IdlenessMonitor,
+  NoopEventsMonitor
 }
 import org.enso.languageserver.protocol.binary.{
   BinaryConnectionControllerFactory,
@@ -54,6 +55,7 @@ import java.net.URI
 import java.time.Clock
 
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
 /** A main module containing all components of the server.
   *
@@ -81,7 +83,8 @@ class MainModule(serverConfig: LanguageServerConfig, logLevel: LogLevel) {
     FileManagerConfig(timeout = 3.seconds),
     PathWatcherConfig(),
     ExecutionContextConfig(),
-    directoriesConfig
+    directoriesConfig,
+    serverConfig.profilingConfig
   )
   log.trace("Created Language Server config [{}].", languageServerConfig)
 
@@ -145,9 +148,28 @@ class MainModule(serverConfig: LanguageServerConfig, logLevel: LogLevel) {
     "lock-manager-service"
   )
 
+  val runtimeEventsMonitor =
+    languageServerConfig.profiling.runtimeEventsLogPath match {
+      case Some(path) =>
+        ApiEventsMonitor(path) match {
+          case Success(monitor) =>
+            monitor
+          case Failure(exception) =>
+            log.error(
+              s"Failed to create runtime events monitor for $path ($exception)."
+            )
+            new NoopEventsMonitor
+        }
+      case None =>
+        new NoopEventsMonitor
+    }
+  log.trace(
+    s"Started runtime events monitor ${runtimeEventsMonitor.getClass.getName}."
+  )
+
   lazy val runtimeConnector =
     system.actorOf(
-      RuntimeConnector.props(lockManagerService),
+      RuntimeConnector.props(lockManagerService, runtimeEventsMonitor),
       "runtime-connector"
     )
 

@@ -1,11 +1,6 @@
 package org.enso.table.data.table;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.BitSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import org.enso.table.data.column.builder.object.InferredBuilder;
 import org.enso.table.data.column.storage.BoolStorage;
@@ -13,8 +8,9 @@ import org.enso.table.data.column.storage.Storage;
 import org.enso.table.data.index.DefaultIndex;
 import org.enso.table.data.index.HashIndex;
 import org.enso.table.data.index.Index;
+import org.enso.table.data.index.MultiValueIndex;
 import org.enso.table.data.mask.OrderMask;
-import org.enso.table.data.table.aggregate.AggregateTable;
+import org.enso.table.data.table.problems.AggregatedProblems;
 import org.enso.table.error.NoSuchColumnException;
 import org.enso.table.error.UnexpectedColumnTypeException;
 
@@ -23,6 +19,7 @@ public class Table {
 
   private final Column[] columns;
   private final Index index;
+  private final AggregatedProblems problems;
 
   /**
    * Creates a new table
@@ -30,14 +27,25 @@ public class Table {
    * @param columns the columns contained in this table.
    */
   public Table(Column[] columns) {
-    this(
-        columns,
-        new DefaultIndex((columns == null || columns.length == 0) ? 0 : columns[0].getSize()));
+    this(columns, null, null);
   }
 
   public Table(Column[] columns, Index index) {
+    this(columns, index, null);
+  }
+
+  public Table(Column[] columns, AggregatedProblems problems) {
+    this(columns, null, problems);
+  }
+
+  private Table(Column[] columns, Index index, AggregatedProblems problems) {
     this.columns = columns;
-    this.index = index;
+    this.index =
+        index == null
+            ? (new DefaultIndex(
+                (columns == null || columns.length == 0) ? 0 : columns[0].getSize()))
+            : index;
+    this.problems = problems;
   }
 
   /** @return the number of rows in this table */
@@ -52,6 +60,11 @@ public class Table {
   /** @return the columns of this table */
   public Column[] getColumns() {
     return columns;
+  }
+
+  /** @return Attached set of any problems from the Java side */
+  public AggregatedProblems getProblems() {
+    return problems;
   }
 
   /**
@@ -96,11 +109,10 @@ public class Table {
    * @return the result of masking this table with the provided column
    */
   public Table mask(Column maskCol) {
-    if (!(maskCol.getStorage() instanceof BoolStorage)) {
+    if (!(maskCol.getStorage() instanceof BoolStorage storage)) {
       throw new UnexpectedColumnTypeException("Boolean");
     }
 
-    BoolStorage storage = (BoolStorage) maskCol.getStorage();
     var mask = BoolStorage.toMask(storage);
     var localStorageMask = new BitSet();
     localStorageMask.set(0, rowCount());
@@ -190,6 +202,31 @@ public class Table {
     Column col = getColumnByName(name);
     if (col == null) throw new NoSuchColumnException(name);
     return indexFromColumn(col);
+  }
+
+  /**
+   * Creates an index for this table by using values from the specified columns.
+   *
+   * @param columns set of columns to use as an Index
+   * @param objectComparator Object comparator allowing calling back to `compare_to` when needed.
+   * @return a table indexed by the proper column
+   */
+  public MultiValueIndex indexFromColumns(Column[] columns, Comparator<Object> objectComparator) {
+    return new MultiValueIndex(columns, this.rowCount(), objectComparator);
+  }
+
+  /**
+   * Creates a new table with the rows sorted
+   *
+   * @param columns set of columns to use as an Index
+   * @param objectComparator Object comparator allowing calling back to `compare_to` when needed.
+   * @return a table indexed by the proper column
+   */
+  public Table orderBy(Column[] columns, Long[] directions, Comparator<Object> objectComparator) {
+    int[] directionInts = Arrays.stream(directions).mapToInt(Long::intValue).toArray();
+    MultiValueIndex index = new MultiValueIndex(columns, this.rowCount(), directionInts, objectComparator);
+    OrderMask mask = new OrderMask(index.makeOrderMap(this.rowCount()));
+    return this.applyMask(mask);
   }
 
   /**
@@ -428,11 +465,6 @@ public class Table {
               suffixIfNecessary(lnames, original.getName(), rsuffix), index, original.getStorage());
     }
     return new Table(newColumns, index);
-  }
-
-  public AggregateTable group(String by) {
-    Table t = by == null ? this : indexFromColumn(by);
-    return new AggregateTable(t);
   }
 
   /** @return a copy of the Column containing a slice of the original data */

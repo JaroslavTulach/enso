@@ -4,6 +4,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.apache.commons.io.FileUtils
 import org.enso.docs.generator.DocsGenerator
+import org.enso.languageserver.boot.ProfilingConfig
 import org.enso.languageserver.capability.CapabilityProtocol.{
   AcquireCapability,
   CapabilityAcquired
@@ -824,7 +825,7 @@ class SuggestionsHandlerSpec
               Seq(
                 SearchProtocol.SuggestionsDatabaseUpdate.Modify(
                   id     = 1,
-                  module = Some(fieldUpdate("Vest.Main"))
+                  module = Some(fieldUpdate("local.Vest.Main"))
                 )
               )
             )
@@ -835,9 +836,9 @@ class SuggestionsHandlerSpec
     "rename types when renaming project" taggedAs Retry in withDb {
       (_, repo, router, _, handler) =>
         val method = Suggestions.method.copy(
-          selfType = "Test.MyType",
+          selfType = "local.Test.MyType",
           arguments = Suggestions.method.arguments.map(arg =>
-            arg.copy(reprType = "Test.MyType")
+            arg.copy(reprType = "local.Test.MyType")
           )
         )
         Await.ready(repo.insert(method), Timeout)
@@ -861,11 +862,11 @@ class SuggestionsHandlerSpec
               Seq(
                 SearchProtocol.SuggestionsDatabaseUpdate.Modify(
                   id     = 1,
-                  module = Some(fieldUpdate("Vest.Main"))
+                  module = Some(fieldUpdate("local.Vest.Main"))
                 ),
                 SearchProtocol.SuggestionsDatabaseUpdate.Modify(
                   id       = 1,
-                  selfType = Some(fieldUpdate("Vest.MyType"))
+                  selfType = Some(fieldUpdate("local.Vest.MyType"))
                 ),
                 SearchProtocol.SuggestionsDatabaseUpdate.Modify(
                   id = 1,
@@ -873,7 +874,7 @@ class SuggestionsHandlerSpec
                     method.arguments.zipWithIndex.map { case (_, index) =>
                       SearchProtocol.SuggestionArgumentUpdate.Modify(
                         index    = index,
-                        reprType = Some(fieldUpdate("Vest.MyType"))
+                        reprType = Some(fieldUpdate("local.Vest.MyType"))
                       )
                     }
                   )
@@ -902,9 +903,9 @@ class SuggestionsHandlerSpec
             Seq(
               inserted(0).get,
               inserted(1).get,
-              inserted(7).get,
               inserted(5).get,
               inserted(6).get,
+              inserted(7).get,
               inserted(2).get
             )
           )
@@ -1107,7 +1108,8 @@ class SuggestionsHandlerSpec
       FileManagerConfig(timeout = 3.seconds),
       PathWatcherConfig(),
       ExecutionContextConfig(requestTimeout = 3.seconds),
-      ProjectDirectoriesConfig.initialize(root.file)
+      ProjectDirectoriesConfig.initialize(root.file),
+      ProfilingConfig()
     )
   }
 

@@ -78,12 +78,12 @@ public abstract class MethodDispatchLibrary extends Library {
     throw new NoSuchMethodException();
   }
 
-  /* * Conversions */
+  /** Conversions */
 
   /** An exception thrown when the library cannot lookup the conversion definition. */
   public static class NoSuchConversionException extends Exception {}
 
-  //@GenerateLibrary.Abstract(ifExported = {"getConversionFunction"})
+  // @GenerateLibrary.Abstract(ifExported = {"getConversionFunction"})
   public boolean canConvertFrom(Object receiver) {
     return false;
   }

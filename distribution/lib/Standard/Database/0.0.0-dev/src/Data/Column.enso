@@ -4,9 +4,12 @@ import Standard.Database.Data.Internal.Helpers
 import Standard.Database.Data.Internal.IR
 import Standard.Database.Data.Table
 import Standard.Table.Data.Column as Materialized_Column
+import Standard.Table.Data.Sort_Column_Selector
+import Standard.Table.Data.Sort_Column
 
 from Standard.Database.Data.Sql import Sql_Type
 from Standard.Database.Data.Table import Integrity_Error
+from Standard.Database.Error as Database_Errors import Unsupported_Database_Operation_Error
 
 type Column
 
@@ -113,17 +116,17 @@ type Column
        defaults to the current type if not provided.
     make_binary_op : Text -> Text -> (Column | Any) -> (Sql_Type | Nothing) -> (Sql_Type | Nothing) -> Column
     make_binary_op op_kind operand new_type=Nothing operand_type=Nothing =
-        actual_new_type = if new_type.is_nothing then this.sql_type else new_type
+        actual_new_type = new_type.if_nothing this.sql_type
         case operand of
             Column _ _ _ other_expr _ ->
                 case Helpers.check_integrity this operand of
                     False ->
-                        Error.throw <| Illegal_State_Error "Cannot compare columns coming from different contexts. Only columns of a single table can be compared."
+                        Error.throw <| Unsupported_Database_Operation_Error "Cannot compare columns coming from different contexts. Only columns of a single table can be compared."
                     True ->
                         new_expr = IR.Operation op_kind [this.expression, other_expr]
                         Column this.name this.connection actual_new_type new_expr this.context
             _ ->
-                actual_operand_type = if operand_type.is_nothing then this.sql_type else operand_type
+                actual_operand_type = operand_type.if_nothing this.sql_type
                 other = IR.make_constant actual_operand_type operand
                 new_expr = IR.Operation op_kind [this.expression, other]
                 Column this.name this.connection actual_new_type new_expr this.context
@@ -138,7 +141,7 @@ type Column
          operator.
     make_unary_op : Text -> Text -> (Sql_Type | Nothing) -> Column
     make_unary_op op_kind new_type=Nothing =
-        actual_new_type = if new_type.is_nothing then this.sql_type else new_type
+        actual_new_type = new_type.if_nothing this.sql_type
         new_expr = IR.Operation op_kind [this.expression]
         Column this.name this.connection actual_new_type new_expr this.context
 
@@ -457,12 +460,11 @@ type Column
              column.sort
 
        > Example
-         Sorting `column` in descending order, placing missing values at the
-         top of the resulting column.
-             column.sort order=Sort_Order.Descending missing_last=False
-    sort : Sort_Order -> Boolean -> (Any -> Any -> Ordering) | Nothing -> Column
-    sort order=Sort_Order.Ascending missing_last=True =
-        this.to_table.sort by=this order=order missing_last=missing_last . at this.name
+         Sorting `column` in descending order.
+             column.sort order=Sort_Direction.Descending
+    sort : Sort_Direction -> Column
+    sort order=Sort_Direction.Ascending =
+        this.to_table.order_by (Sort_Column_Selector.By_Column [Sort_Column.Column this order]) . at this.name
 
     ## UNSTABLE
 
@@ -604,7 +606,7 @@ type Aggregate_Column_Builder
    - new_type: The SQL type of the result column.
 make_aggregate : Column -> Text -> Text -> Sql_Type -> Column
 make_aggregate column operation name_suffix="_agg" new_type=Nothing =
-    actual_new_type = if new_type.is_nothing then column.sql_type else new_type
+    actual_new_type = new_type.if_nothing column.sql_type
     expr = IR.Operation operation [column.expression]
     case Helpers.ensure_name_is_sane name_suffix of
         True ->
@@ -636,4 +638,3 @@ lift_aggregate new_name connection expected_type expr context =
     new_ixes = cols.second
     new_ctx = IR.subquery_as_ctx subquery . set_index new_ixes
     Column new_name connection new_col.sql_type new_col.expression new_ctx
-

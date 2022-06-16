@@ -1,6 +1,5 @@
 from Standard.Base import all
-from Standard.Builtins import Array
-from Standard.Builtins import Unsupported_Argument_Types
+import Standard.Base.Runtime.Unsafe
 
 ## Creates a new vector of the given length, initializing elements using
    the provided constructor function.
@@ -56,19 +55,22 @@ fill length ~item =
    A vector allows to store an arbitrary number of elements in linear memory. It
    is the recommended data structure for most applications.
 
+   Arguments:
+   - capacity: Initial capacity of the Vector.Builder
+
    > Example
      Construct a vector using a builder that contains the items 1 to 10.
 
          example_new_builder =
-              builder = Vector.new_builder
+              builder = Vector.new_builder 10
               do_build start stop =
                   builder.append start
                   if start >= stop then Nothing else
                       @Tail_Call do_build start+1 stop
               do_build 1 10
               builder.to_vector
-new_builder : Builder
-new_builder = Builder.new
+new_builder : Integer -> Builder
+new_builder (capacity=1) = Builder.new capacity
 
 ## ADVANCED
 
@@ -142,13 +144,7 @@ type Vector
     at : Integer -> Any ! Index_Out_Of_Bounds_Error
     at index =
         actual_index = if index < 0 then this.length + index else index
-        ## TODO [RW] Ideally we do not want an additional check here, but we
-           should catch a Invalid_Array_Index_Error panic. However, such a catch
-           should still properly forward any other panics or dataflow errors
-           which is not fully possible until the approach to handling Panics is
-           improved, as described in the following Pivotal ticket:
-           https://www.pivotaltracker.com/n/projects/2539304/stories/181029230
-        if actual_index>=0 && actual_index<this.length then this.unsafe_at actual_index else
+        Panic.catch Invalid_Array_Index_Error (this.unsafe_at actual_index) _->
             Error.throw (Index_Out_Of_Bounds_Error index this.length)
 
     ## ADVANCED
@@ -675,6 +671,29 @@ type Vector
     drop_start : Integer -> Vector Any
     drop_start count = this.take count this.length
 
+    ## Creates a new vector with elements at the beginning of the vector which
+       satisfy the provided predicate removed.
+
+       Arguments:
+       - predicate: A function returning `Boolean` specifying the prefix to
+         remove.
+
+       > Example
+         Remove any odd elements at the beginining of the vector (but keeping
+         any odd elements later on).
+
+             [1, 3, 5, 6, 8, 9, 10, 11, 13].drop_while (x-> x%2 == 1) == [6, 8, 9, 10, 11, 13]
+    drop_while : (Any -> Boolean) -> Vector Any
+    drop_while predicate =
+        find_first_false current =
+            if current >= this.length then Nothing else
+                case predicate (this.unsafe_at current) of
+                    False -> current
+                    True -> @Tail_Call find_first_false current+1
+        case find_first_false 0 of
+            Nothing -> []
+            first_false -> this.take first_false this.length
+
     ## Creates a new vector with the last `count` elements in `this` removed.
 
        Arguments:
@@ -883,9 +902,9 @@ type Vector
        > Example
          Sorting a vector of `Pair`s on the first element, descending.
 
-             [Pair 1 2, Pair -1 8].sort (_.first) (order = Sort_Order.Descending)
-    sort : (Any -> Any) -> (Any -> Any -> Ordering) -> Sort_Order -> Vector Any
-    sort (on = x -> x) (by = (_.compare_to _)) (order = Sort_Order.Ascending) =
+             [Pair 1 2, Pair -1 8].sort (_.first) (order = Sort_Direction.Descending)
+    sort : (Any -> Any) -> (Any -> Any -> Ordering) -> Sort_Direction -> Vector Any
+    sort (on = x -> x) (by = (_.compare_to _)) (order = Sort_Direction.Ascending) =
         ## Prepare the destination array that will underlie the vector. We do
            not want to sort in place on the original vector, as `sort` is not
            intended to be mutable.
@@ -897,7 +916,7 @@ type Vector
            does both.
         comp_ascending l r  = by (on l) (on r)
         comp_descending l r = by (on r) (on l)
-        compare = if order == Sort_Order.Ascending then comp_ascending else
+        compare = if order == Sort_Direction.Ascending then comp_ascending else
             comp_descending
 
         new_vec_arr.sort compare
@@ -938,7 +957,7 @@ type Vector
 
            More details on the HashCode / HashMap ticket https://www.pivotaltracker.com/story/show/181027272.
 
-        recovered = Panic.recover Any
+        here.handle_incomparable_value <|
             builder = here.new_builder
             this.fold Map.empty existing->
                 item->
@@ -947,12 +966,6 @@ type Vector
                         builder.append item
                         existing.insert key True
             builder.to_vector
-
-        recovered.map_error e-> case e of
-            No_Such_Method_Error _ _ -> Incomparable_Values_Error
-            Unsupported_Argument_Types _ -> Incomparable_Values_Error
-            Type_Error _ _ -> Incomparable_Values_Error
-            _ -> Panic.throw e
 
 
     ## UNSTABLE
@@ -963,6 +976,9 @@ type Vector
     to_default_visualization_data =
         json = this.take_start 100 . to_json
         json.to_text
+
+## PRIVATE
+type Wrapped_Error error
 
 type Builder
 
@@ -996,12 +1012,15 @@ type Builder
 
     ## Creates a new builder.
 
+       Arguments:
+       - capacity: Initial capacity of the Vector.Builder
+
        > Example
          Make a new builder
 
              Vector.new_builder
-    new : Builder
-    new = Builder (Array.new 1) 0
+    new : Integer->Builder
+    new (capacity=1) = Builder (Array.new capacity) 0
 
     ## Returns the current capacity (i.e. the size of the underlying storage)
        of this builder.
@@ -1068,6 +1087,18 @@ type Builder
             Unsafe.set_atom_field this 0 new_array
             this.append item
             Nothing
+
+    ## Gets an element from the vector at a specified index (0-based).
+
+       Arguments:
+       - index: The location in the vector to get the element from. The index is
+         also allowed be negative, then the elements are indexed from the back
+         of the vector, i.e. -1 will correspond to the last element.
+    at : Integer -> Any ! Index_Out_Of_Bounds_Error
+    at index =
+        actual_index = if index < 0 then this.length + index else index
+        Panic.catch Invalid_Array_Index_Error (this.to_array.at actual_index) _->
+            Error.throw (Index_Out_Of_Bounds_Error index this.length)
 
     ## Checks whether a predicate holds for at least one element of this builder.
 
@@ -1147,3 +1178,10 @@ type Partition_Accumulator true_builder false_builder ix
    An error indicating that the vector contains incomparable types.
 
 type Incomparable_Values_Error
+
+## ADVANCED
+   Catches possible errors from comparing values and throws an
+   Incomparable_Values_Error if any occur.
+handle_incomparable_value ~function =
+    handle t = Panic.catch t handler=(Error.throw Incomparable_Values_Error)
+    handle No_Such_Method_Error <| handle Type_Error <| handle Unsupported_Argument_Types <| function

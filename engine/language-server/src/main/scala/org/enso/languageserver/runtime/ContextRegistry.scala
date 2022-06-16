@@ -1,7 +1,5 @@
 package org.enso.languageserver.runtime
 
-import java.util.UUID
-
 import akka.actor.{Actor, ActorRef, Props}
 import com.typesafe.scalalogging.LazyLogging
 import org.enso.languageserver.data.{ClientId, Config}
@@ -17,7 +15,10 @@ import org.enso.polyglot.runtime.Runtime.Api
 import org.enso.polyglot.runtime.Runtime.Api.ContextId
 import org.enso.searcher.SuggestionsRepo
 
+import java.util.UUID
+
 import scala.concurrent.Future
+import scala.concurrent.duration._
 
 /** Registry handles execution context requests and communicates with runtime
   * connector.
@@ -71,7 +72,8 @@ final class ContextRegistry(
 
   import ContextRegistryProtocol._
 
-  private val timeout = config.executionContext.requestTimeout
+  private val timeout: FiniteDuration =
+    config.executionContext.requestTimeout
 
   override def preStart(): Unit = {
     context.system.eventStream
@@ -197,6 +199,21 @@ final class ContextRegistry(
           handler.forward(
             Api.RecomputeContextRequest(contextId, invalidatedExpressions)
           )
+        } else {
+          sender() ! AccessDenied
+        }
+
+      case GetComponentGroupsRequest(clientId, contextId) =>
+        if (store.hasContext(clientId, contextId)) {
+          val handler =
+            context.actorOf(
+              GetComponentGroupsHandler.props(
+                runtimeFailureMapper,
+                timeout,
+                runtime
+              )
+            )
+          handler.forward(Api.GetComponentGroupsRequest())
         } else {
           sender() ! AccessDenied
         }

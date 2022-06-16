@@ -6,21 +6,16 @@ import com.ibm.icu.text.CaseMap.Fold;
 import com.ibm.icu.text.Normalizer;
 import com.ibm.icu.text.Normalizer2;
 import com.ibm.icu.text.StringSearch;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Pattern;
 import org.enso.base.text.CaseFoldedString;
+import org.enso.base.text.CaseFoldedString.Grapheme;
 import org.enso.base.text.GraphemeSpan;
 import org.enso.base.text.Utf16Span;
 
 /** Utils for standard library operations on Text. */
 public class Text_Utils {
-  private static final Pattern whitespace =
-      Pattern.compile("\\s+", Pattern.UNICODE_CHARACTER_CLASS);
-  private static final Pattern vertical_space =
-      Pattern.compile("\\v+", Pattern.UNICODE_CHARACTER_CLASS);
 
   /**
    * Creates a substring of the given string, indexing using the Java standard (UTF-16) indexing
@@ -47,16 +42,6 @@ public class Text_Utils {
   }
 
   /**
-   * Converts a string into an array of UTF-8 bytes.
-   *
-   * @param str the string to convert
-   * @return the UTF-8 representation of the string.
-   */
-  public static byte[] get_bytes(String str) {
-    return str.getBytes(StandardCharsets.UTF_8);
-  }
-
-  /**
    * Converts a string into an array of UTF-16 chars.
    *
    * @param str the string to convert
@@ -77,37 +62,42 @@ public class Text_Utils {
   }
 
   /**
-   * Splits the string on each occurrence of {@code sep}, returning the resulting substrings in an
-   * array.
-   *
-   * @param str the string to split
-   * @param sep the separator string
-   * @return array of substrings of {@code str} contained between occurences of {@code sep}
-   */
-  public static String[] split_by_literal(String str, String sep) {
-    return str.split(Pattern.quote(sep));
-  }
-
-  /**
-   * Splits the string on each occurrence of UTF-8 whitespace, returning the resulting substrings in
-   * an array.
-   *
-   * @param str the string to split
-   * @return the array of substrings of {@code str}
-   */
-  public static String[] split_on_whitespace(String str) {
-    return whitespace.split(str);
-  }
-
-  /**
    * Splits the string on each occurrence of UTF-8 vertical whitespace, returning the resulting
    * substrings in an array.
    *
    * @param str the string to split
+   * @param keep_endings whether to keep line endings in returned lines
    * @return the array of substrings of {@code str}
    */
-  public static String[] split_on_lines(String str) {
-    return vertical_space.split(str);
+  public static List<String> split_on_lines(String str, boolean keep_endings) {
+    ArrayList<String> acc = new ArrayList<>();
+    int length = str.length();
+    int currentStart = 0;
+    int currentPos = 0;
+    while (currentPos < length) {
+      if (str.charAt(currentPos) == '\n') {
+        acc.add(str.substring(currentStart, keep_endings ? currentPos + 1 : currentPos));
+        currentStart = currentPos + 1;
+        currentPos = currentStart;
+      } else if (str.charAt(currentPos) == '\r') {
+        // Handle the '\r\n' digraph.
+        int offset = 1;
+        if (currentPos + 1 < length && str.charAt(currentPos + 1) == '\n') {
+          offset = 2;
+        }
+        acc.add(str.substring(currentStart, keep_endings ? currentPos + offset : currentPos));
+        currentStart = currentPos + offset;
+        currentPos = currentStart;
+      } else {
+        currentPos += 1;
+      }
+    }
+
+    if (currentStart < length) {
+      acc.add(str.substring(currentStart));
+    }
+
+    return acc;
   }
 
   /**
@@ -134,9 +124,8 @@ public class Text_Utils {
    * @return the result of comparison
    */
   public static boolean equals_ignore_case(String str1, Object str2, Locale locale) {
-    if (str2 instanceof String) {
-      Fold fold = CaseFoldedString.caseFoldAlgorithmForLocale(locale);
-      return compare_normalized(fold.apply(str1), fold.apply((String) str2)) == 0;
+    if (str2 instanceof String string2) {
+      return compare_normalized_ignoring_case(str1, string2, locale) == 0;
     } else {
       return false;
     }
@@ -150,16 +139,6 @@ public class Text_Utils {
    */
   public static String from_codepoints(int[] codepoints) {
     return new String(codepoints, 0, codepoints.length);
-  }
-
-  /**
-   * Converts an array of UTF-8 bytes into a string.
-   *
-   * @param bytes the bytes to convert
-   * @return the resulting string
-   */
-  public static String from_utf_8(byte[] bytes) {
-    return new String(bytes, StandardCharsets.UTF_8);
   }
 
   /**
@@ -183,6 +162,21 @@ public class Text_Utils {
    */
   public static int compare_normalized(String a, String b) {
     return Normalizer.compare(a, b, Normalizer.FOLD_CASE_DEFAULT);
+  }
+
+  /**
+   * Compares {@code a} to {@code b} according to the lexicographical order, handling Unicode
+   * normalization.
+   *
+   * @param a the left operand
+   * @param b the right operand
+   * @param locale the locale to use for case folding
+   * @return a negative value if {@code a} is before {@code b}, 0 if both values are equal and a
+   *     positive value if {@code a} is after {@code b}
+   */
+  public static int compare_normalized_ignoring_case(String a, String b, Locale locale) {
+    Fold fold = CaseFoldedString.caseFoldAlgorithmForLocale(locale);
+    return Normalizer.compare(fold.apply(a), fold.apply(b), Normalizer.FOLD_CASE_DEFAULT);
   }
 
   /**
@@ -229,19 +223,6 @@ public class Text_Utils {
    */
   public static String case_insensitive_key(String string, Locale locale) {
     return CaseFoldedString.simpleFold(string, locale);
-  }
-
-  /**
-   * Replaces all occurrences of {@code oldSequence} within {@code str} with {@code newSequence}.
-   *
-   * @param str the string to process
-   * @param oldSequence the substring that is searched for and will be replaced
-   * @param newSequence the string that will replace occurrences of {@code oldSequence}
-   * @return {@code str} with all occurrences of {@code oldSequence} replaced with {@code
-   *     newSequence}
-   */
-  public static String replace(String str, String oldSequence, String newSequence) {
-    return str.replace(oldSequence, newSequence);
   }
 
   /**
@@ -306,7 +287,7 @@ public class Text_Utils {
 
     StringSearch search = new StringSearch(needle, haystack);
     ArrayList<Utf16Span> occurrences = new ArrayList<>();
-    long ix;
+    int ix;
     while ((ix = search.next()) != StringSearch.DONE) {
       occurrences.add(new Utf16Span(ix, ix + search.getMatchLength()));
     }
@@ -456,13 +437,21 @@ public class Text_Utils {
    * @return a minimal {@code GraphemeSpan} which contains all code units from the match
    */
   private static GraphemeSpan findExtendedSpan(CaseFoldedString string, int position, int length) {
-    int firstGrapheme = string.codeUnitToGraphemeIndex(position);
+    Grapheme firstGrapheme = string.findGrapheme(position);
     if (length == 0) {
-      return new GraphemeSpan(firstGrapheme, firstGrapheme);
+      return new GraphemeSpan(
+          firstGrapheme.index,
+          firstGrapheme.index,
+          firstGrapheme.codeunit_start,
+          firstGrapheme.codeunit_start);
     } else {
-      int lastGrapheme = string.codeUnitToGraphemeIndex(position + length - 1);
-      int endGrapheme = lastGrapheme + 1;
-      return new GraphemeSpan(firstGrapheme, endGrapheme);
+      Grapheme lastGrapheme = string.findGrapheme(position + length - 1);
+      int endGraphemeIndex = lastGrapheme.index + 1;
+      return new GraphemeSpan(
+          firstGrapheme.index,
+          endGraphemeIndex,
+          firstGrapheme.codeunit_start,
+          lastGrapheme.codeunit_end);
     }
   }
 
@@ -479,10 +468,36 @@ public class Text_Utils {
   /**
    * Checks if the given string consists only of whitespace characters.
    *
-   * @param str the string to check
+   * @param text the string to check
    * @return {@code true} if {@code str} is only whitespace, otherwise {@code false}
    */
   public static boolean is_all_whitespace(String text) {
     return text.codePoints().allMatch(UCharacter::isUWhiteSpace);
+  }
+
+  /**
+   * Replaces all provided spans within the text with {@code newSequence}.
+   *
+   * @param str the string to process
+   * @param spans the spans to replace; the spans should be sorted by their starting point in the
+   *     non-decreasing order; the behaviour is undefined if these requirements are not satisfied.
+   * @param newSequence the string that will replace the spans
+   * @return {@code str} with all provided spans replaced with {@code newSequence}
+   */
+  public static String replace_spans(String str, List<Utf16Span> spans, String newSequence) {
+    StringBuilder sb = new StringBuilder();
+    int current_ix = 0;
+    for (Utf16Span span : spans) {
+      if (span.codeunit_start > current_ix) {
+        sb.append(str, current_ix, span.codeunit_start);
+      }
+
+      sb.append(newSequence);
+      current_ix = span.codeunit_end;
+    }
+
+    // Add the remaining part of the string (if any).
+    sb.append(str, current_ix, str.length());
+    return sb.toString();
   }
 }
