@@ -1,0 +1,35 @@
+
+
+plugins {
+    id 'scala'
+}
+
+repositories {
+    // Use Maven Central for resolving dependencies.
+    mavenCentral()
+}
+
+
+sourceSets {
+    main {
+        java {
+            srcDirs 'src/main/scala'
+        }
+    }
+    test {
+        java {
+            srcDirs 'src/test/scala'
+        }
+    }
+ }
+
+dependencies {
+    // Use JUnit Jupiter for testing.
+    testImplementation 'junit:junit:4.12'
+
+    implementation "org.typelevel:cats-core_2.13:2.7.0"
+    implementation "org.bouncycastle:bcpkix-jdk15on:1.70"
+    testImplementation "org.scalatest:scalatest_2.13:3.3.0-SNAP3"
+    testImplementation "org.scalacheck:scalacheck_2.13:1.15.4"
+
+}

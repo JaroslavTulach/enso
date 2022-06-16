@@ -9,3 +9,5 @@
 
 rootProject.name = 'Enso Engine'
 include('runtime')
+include('runtime-instrument-id-execution')
+include('runtime-with-instruments')
