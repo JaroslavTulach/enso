@@ -17,7 +17,7 @@ import org.graalvm.polyglot.PolyglotException
 
 import java.io.File
 import java.nio.file.{Path, Paths}
-import java.util.{Collections, UUID}
+import java.util.{HashMap, UUID}
 
 import scala.Console.err
 import scala.concurrent.duration._
@@ -30,6 +30,7 @@ object Main {
 
   private val RUN_OPTION                     = "run"
   private val INSPECT_OPTION                 = "inspect"
+  private val DUMP_GRAPHS_OPTION             = "dump-graphs"
   private val HELP_OPTION                    = "help"
   private val NEW_OPTION                     = "new"
   private val PROJECT_NAME_OPTION            = "new-project-name"
@@ -98,6 +99,10 @@ object Main {
     val inspect = CliOption.builder
       .longOpt(INSPECT_OPTION)
       .desc("Start the Chrome inspector when --run is used.")
+      .build
+    val dumpGraphs = CliOption.builder
+      .longOpt(DUMP_GRAPHS_OPTION)
+      .desc("Dumps IGV graphs when --run is used.")
       .build
     val docs = CliOption.builder
       .longOpt(DOCS_OPTION)
@@ -345,6 +350,7 @@ object Main {
       .addOption(repl)
       .addOption(run)
       .addOption(inspect)
+      .addOption(dumpGraphs)
       .addOption(docs)
       .addOption(preinstall)
       .addOption(newOpt)
@@ -535,6 +541,11 @@ object Main {
         }
         file.getAbsolutePath
       } else projectPath.getOrElse("")
+    val options = new HashMap[String, String]()
+    DumpGraphsSupport.configureDumping(options)
+    if (inspect) {
+      options.put("inspect", "")
+    }
     val context = new ContextFactory().create(
       projectRoot,
       System.in,
@@ -545,9 +556,7 @@ object Main {
       enableIrCaches,
       strictErrors          = true,
       enableAutoParallelism = enableAutoParallelism,
-      options =
-        if (inspect) Collections.singletonMap("inspect", "")
-        else Collections.emptyMap
+      options               = options
     )
     if (projectMode) {
       PackageManager.Default.loadPackage(file) match {
@@ -926,6 +935,10 @@ object Main {
     if (line.hasOption(VERSION_OPTION)) {
       displayVersion(useJson = line.hasOption(JSON_OPTION))
       exitSuccess()
+    }
+
+    if (line.hasOption(DUMP_GRAPHS_OPTION)) {
+      DumpGraphsSupport.enableDumping()
     }
 
     val logLevel = Option(line.getOptionValue(LOG_LEVEL))
