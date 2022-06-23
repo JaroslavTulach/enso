@@ -137,4 +137,4 @@ specWith name createNewDate =
 main = Test.Suite.run_main here.spec
 
 foreign js jsDate year month day = """
-    return new Date(year, month, day);
+    return new Date(year, month - 1, day);
