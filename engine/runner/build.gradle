@@ -19,8 +19,8 @@ repositories {
 sourceSets {
     main {
         java {
+            srcDirs 'src/main/java'
             srcDirs 'src/main/scala'
-            srcDirs 'target/scala-2.13/src_managed/main/'
         }
     }
     test {
@@ -34,15 +34,17 @@ sourceSets {
 
 compileJava {
     sourceCompatibility = 18
-    targetCompatibility = 11
+    targetCompatibility = 18
 }
 
 compileTestJava {
     sourceCompatibility = 18
-    targetCompatibility = 11
+    targetCompatibility = 18
 }
 
 dependencies {
+    implementation project(':runtime')
+
     // Use JUnit Jupiter for testing.
     testImplementation 'junit:junit:4.12'
     testImplementation 'org.openjdk.jmh:jmh-core:1.34'
@@ -62,6 +64,7 @@ dependencies {
     implementation 'org.scala-lang:scala-library:2.13.8'
     implementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
     implementation files('../../engine/runtime/target/scala-2.13/classes')
+    implementation files('../../engine/runtime/target/scala-2.13/test-classes')
     implementation files('../../lib/scala/docs-generator/target/scala-2.13/classes')
     implementation files('../../lib/scala/syntax/specialization/jvm/target/scala-2.13/classes')
     implementation files('../../lib/scala/logger/.jvm/target/scala-2.13/classes')

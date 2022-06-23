@@ -8,6 +8,10 @@
  */
 
 rootProject.name = 'Enso Engine'
+include('runner')
 include('runtime')
+include('runtime-language-epb')
 include('runtime-instrument-id-execution')
+include('runtime-instrument-repl-debugger')
+include('runtime-instrument-runtime-server')
 include('runtime-with-instruments')
