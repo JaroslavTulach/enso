@@ -10,6 +10,7 @@ import Standard.Test
 spec =
     here.specWith "Date" Date.new Date.parse
     here.specWith "JavaScriptDate" here.jsDate here.jsParse
+    here.specWith "JavaScriptArrayWithADate" here.jsArrayDate Date.parse
 
 specWith name createNewDate parseDate =
     Test.group name <|
@@ -149,3 +150,10 @@ foreign js jsParse text format='' orig=here.parseNormally = """
     let ms = Date.parse(text);
     if (ms === NaN) throw `Illegal date ${text}`;
     return new Date(ms);
+
+jsArrayDate year month=1 day=1 =
+    arr = here.jsArrayDateCreate year month day
+    arr.at(0)
+
+foreign js jsArrayDateCreate year month day = """
+    return [ new Date(year, month - 1, day) ];
