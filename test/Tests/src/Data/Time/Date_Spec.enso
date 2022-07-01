@@ -9,7 +9,7 @@ import Standard.Test
 
 spec =
     here.specWith "Date" Date.new
-    here.specWith "JavaScriptDate" here.jsDate
+    here.specWith "JavaScriptDate" here.jsDateWrapper
 
 specWith name createNewDate =
     Test.group name <|
@@ -135,6 +135,8 @@ specWith name createNewDate =
             date_2.week_of_year Locale.uk . should_equal 0
 
 main = Test.Suite.run_main here.spec
+
+jsDateWrapper year month=1 day=1 = here.jsDate year month day
 
 foreign js jsDate year month day = """
     return new Date(year, month - 1, day);
