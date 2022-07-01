@@ -7,9 +7,12 @@ import Standard.Base.Data.Time.Time_Of_Day
 import Standard.Base.Data.Time.Zone
 import Standard.Test
 
+polyglot java import java.time.LocalDate
+
 spec =
     here.specWith "Date" Date.new Date.parse
     here.specWith "JavaScriptDate" here.jsDate here.jsParse
+    here.specWith "JavaDate" here.javaDate Date.parse
     here.specWith "JavaScriptArrayWithADate" here.jsArrayDate Date.parse
 
 specWith name createNewDate parseDate =
@@ -139,10 +142,17 @@ main = Test.Suite.run_main here.spec
 
 parseNormally x y = (Date.parse x y) . to_text
 
-foreign js jsDate year month=1 day=1 = """
-    return new Date(year, month - 1, day);
+jsParse text format='' =
+    Panic.recover Any (here.jsParseImpl text format) . catch e-> case e of
+        Polyglot_Error err -> Error.throw (Time.Time_Error err.getMessage)
+        x -> x
 
-foreign js jsParse text format='' orig=here.parseNormally = """
+foreign js jsDate year month=1 day=1 = """
+    if (month > 12) throw `Wrong month ${month}`;
+    var d = new Date(year, month - 1, day);
+    return d;
+
+foreign js jsParseImpl text format='' orig=here.parseNormally = """
     if (format != '') {
         # JavaScript doesn't support special parsing format
         text = orig(text, format);
@@ -157,3 +167,11 @@ jsArrayDate year month=1 day=1 =
 
 foreign js jsArrayDateCreate year month day = """
     return [ new Date(year, month - 1, day) ];
+
+javaDate year month=1 day=1 =
+    Panic.recover Any (here.javaDateImpl year month day) . catch e-> case e of
+        Polyglot_Error err -> Error.throw (Time.Time_Error err.getMessage)
+        x -> x
+
+javaDateImpl year month day =
+    LocalDate.of year month day
