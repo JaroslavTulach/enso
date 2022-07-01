@@ -8,10 +8,10 @@ import Standard.Base.Data.Time.Zone
 import Standard.Test
 
 spec =
-    here.specWith "Date" Date.new
-    here.specWith "JavaScriptDate" here.jsDateWrapper
+    here.specWith "Date" Date.new Date.parse
+    here.specWith "JavaScriptDate" here.jsDateWrapper Date.parse
 
-specWith name createNewDate =
+specWith name createNewDate parseDate =
     Test.group name <|
 
         Test.specify "should create local date" <|
@@ -37,32 +37,32 @@ specWith name createNewDate =
 
         Test.specify "should parse default time format" <|
             text = createNewDate 2020 12 21 . to_text
-            date = Date.parse text
+            date = parseDate text
             date . year . should_equal 2020
             date . month . should_equal 12
             date . day . should_equal 21
 
         Test.specify "should throw error when parsing invalid date" <|
-            case Date.parse "birthday" . catch (x -> x) of
+            case parseDate "birthday" . catch (x -> x) of
                 Time.Time_Error msg ->
                     msg . should_equal "Text 'birthday' could not be parsed at index 0"
                 result ->
                     Test.fail ("Unexpected result: " + result.to_text)
 
         Test.specify "should parse local date" <|
-            date = Date.parse "1999-01-01"
+            date = parseDate "1999-01-01"
             date . year . should_equal 1999
             date . month . should_equal 1
             date . day . should_equal 1
 
         Test.specify "should parse custom format" <|
-            date = Date.parse "1999 1 1" "yyyy M d"
+            date = parseDate "1999 1 1" "yyyy M d"
             date . year . should_equal 1999
             date . month . should_equal 1
             date . day . should_equal 1
 
         Test.specify "should throw error when parsing custom format" <|
-            date = Date.parse "1999-01-01" "yyyy M d"
+            date = parseDate "1999-01-01" "yyyy M d"
             case date.catch (x -> x) of
                 Time.Time_Error msg ->
                     msg . should_equal "Text '1999-01-01' could not be parsed at index 4"
@@ -118,8 +118,8 @@ specWith name createNewDate =
                     Test.fail ("Unexpected result: " + result.to_text)
 
         Test.specify "should be comparable" <|
-            date_1 = Date.parse "2021-01-02"
-            date_2 = Date.parse "2021-01-01"
+            date_1 = parseDate "2021-01-02"
+            date_2 = parseDate "2021-01-01"
             (date_1 == date_2) . should_be_false
             date_1==date_1 . should_be_true
             date_1!=date_2 . should_be_true
@@ -127,10 +127,10 @@ specWith name createNewDate =
             date_1<date_2 . should_be_false
 
         Test.specify "should return the correct week of year" <|
-            date_1 = Date.parse "2021-08-01"
+            date_1 = parseDate "2021-08-01"
             date_1.week_of_year Locale.mexico . should_equal 32
 
-            date_2 = Date.parse "2021-01-01"
+            date_2 = parseDate "2021-01-01"
             date_2.week_of_year Locale.us . should_equal 1
             date_2.week_of_year Locale.uk . should_equal 0
 
