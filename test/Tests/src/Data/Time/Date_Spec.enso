@@ -9,7 +9,7 @@ import Standard.Test
 
 spec =
     here.specWith "Date" Date.new Date.parse
-    here.specWith "JavaScriptDate" here.jsDate Date.parse
+    here.specWith "JavaScriptDate" here.jsDate here.jsParse
 
 specWith name createNewDate parseDate =
     Test.group name <|
@@ -136,5 +136,16 @@ specWith name createNewDate parseDate =
 
 main = Test.Suite.run_main here.spec
 
+parseNormally x y = (Date.parse x y) . to_text
+
 foreign js jsDate year month=1 day=1 = """
     return new Date(year, month - 1, day);
+
+foreign js jsParse text format='' orig=here.parseNormally = """
+    if (format != '') {
+        # JavaScript doesn't support special parsing format
+        text = orig(text, format);
+    }
+    let ms = Date.parse(text);
+    if (ms === NaN) throw `Illegal date ${text}`;
+    return new Date(ms);
