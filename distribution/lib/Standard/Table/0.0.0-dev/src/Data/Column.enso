@@ -21,7 +21,9 @@ polyglot java import org.enso.table.operations.OrderBuilder
          example_from_vector =
              Table.Column.from_vector "My Column" [1, 2, 3, 4, 5]
 from_vector : Text -> Vector -> Column
-from_vector name items = Column (Java_Column.fromItems name items.to_array)
+from_vector name items =
+    if (name == 'From') || (name == 'To') then Column (Java_Column.fromItemsDate name items.to_array) else
+        Column (Java_Column.fromItems name items.to_array)
 
 type Column
 

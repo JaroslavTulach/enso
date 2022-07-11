@@ -1,5 +1,6 @@
 package org.enso.table.data.table;
 
+import java.time.LocalDate;
 import java.util.BitSet;
 import java.util.List;
 import java.util.function.Function;
@@ -109,6 +110,10 @@ public class Column {
     return new Column(name, index, storage);
   }
 
+  public static Column fromItemsDate(String name, List<LocalDate> items) {
+      return fromItems(name, items);
+  }
+
   /**
    * Creates a new column with given name and elements.
    *
@@ -116,7 +121,7 @@ public class Column {
    * @param items the items contained in the column
    * @return a column with given name and items
    */
-  public static Column fromItems(String name, List<Object> items) {
+  public static Column fromItems(String name, List<? extends Object> items) {
     InferredBuilder builder = new InferredBuilder(items.size());
     for (Object item : items) {
       builder.appendNoGrow(item);
