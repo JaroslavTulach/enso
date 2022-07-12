@@ -199,21 +199,6 @@ public abstract class InvokeMethodNode extends BaseNode {
       }
     }
     Object res = hostMethodCallNode.execute(polyglotCallType, symbol.getName(), self, args);
-    if (!(res instanceof Atom)) {
-      if (interop.isDate(res)) {
-        final Context ctx = Context.get(this);
-        var dateConstructor = ctx.getDateConstructor();
-        if (dateConstructor.isPresent()) {
-          try {
-            var hostLocalDate = interop.asDate(res);
-            var guestLocalDate = ctx.getEnvironment().asGuestValue(hostLocalDate);
-            res = dateConstructor.get().newInstance(guestLocalDate);
-          } catch (UnsupportedMessageException ex) {
-            res = dateConstructor.get().newInstance(res);
-          }
-        }
-      }
-    }
     if (anyWarnings) {
       anyWarningsProfile.enter();
       res = WithWarnings.prependTo(res, accumulatedWarnings);
@@ -281,7 +266,6 @@ public abstract class InvokeMethodNode extends BaseNode {
         date = self;
       }
       Function function = dateDispatch.getFunctionalDispatch(date, symbol);
-      arguments[0] = date;
       return invokeFunctionNode.execute(function, frame, state, arguments);
     } catch (MethodDispatchLibrary.NoSuchMethodException e) {
       throw new PanicException(ctx.getBuiltins().error().makeNoSuchMethodError(self, symbol), this);
