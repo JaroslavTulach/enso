@@ -149,6 +149,7 @@ public class Array implements TruffleObject {
     return toString();
   }
 
+  @CompilerDirectives.TruffleBoundary
   @Override
   public String toString() {
     return Arrays.toString(items);

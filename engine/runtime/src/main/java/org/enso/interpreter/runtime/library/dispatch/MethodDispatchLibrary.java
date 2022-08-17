@@ -37,7 +37,12 @@ public abstract class MethodDispatchLibrary extends Library {
   }
 
   /** An exception thrown when the library cannot lookup the method definition. */
-  public static class NoSuchMethodException extends Exception {}
+  public static class NoSuchMethodException extends Exception {
+    @Override
+    public Throwable fillInStackTrace() {
+      return this;
+    }
+  }
 
   private static final LibraryFactory<MethodDispatchLibrary> FACTORY =
       LibraryFactory.resolve(MethodDispatchLibrary.class);
@@ -81,7 +86,12 @@ public abstract class MethodDispatchLibrary extends Library {
   /** Conversions */
 
   /** An exception thrown when the library cannot lookup the conversion definition. */
-  public static class NoSuchConversionException extends Exception {}
+  public static class NoSuchConversionException extends Exception {
+    @Override
+    public Throwable fillInStackTrace() {
+      return this;
+    }
+  }
 
   // @GenerateLibrary.Abstract(ifExported = {"getConversionFunction"})
   public boolean canConvertFrom(Object receiver) {
