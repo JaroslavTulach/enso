@@ -120,6 +120,7 @@ public class Text implements TruffleObject {
     return toJavaStringNode.execute(this);
   }
 
+  @CompilerDirectives.TruffleBoundary
   @ExportMessage
   String toDisplayString(
       boolean allowSideEffects,

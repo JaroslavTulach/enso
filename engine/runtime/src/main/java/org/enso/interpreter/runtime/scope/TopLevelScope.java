@@ -1,5 +1,6 @@
 package org.enso.interpreter.runtime.scope;
 
+import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.TruffleFile;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.interop.ArityException;
@@ -122,12 +123,14 @@ public class TopLevelScope implements TruffleObject {
       return module.get();
     }
 
+    @CompilerDirectives.TruffleBoundary
     private static Module createModule(TopLevelScope scope, Object[] arguments, Context context)
         throws ArityException, UnsupportedTypeException {
       String moduleName = Types.extractArguments(arguments, String.class);
       return Module.empty(QualifiedName.simpleName(moduleName), null);
     }
 
+    @CompilerDirectives.TruffleBoundary
     private static Module registerModule(TopLevelScope scope, Object[] arguments, Context context)
         throws ArityException, UnsupportedTypeException {
       Types.Pair<String, String> args =
@@ -139,6 +142,7 @@ public class TopLevelScope implements TruffleObject {
       return module;
     }
 
+    @CompilerDirectives.TruffleBoundary
     private static Object unregisterModule(TopLevelScope scope, Object[] arguments, Context context)
         throws ArityException, UnsupportedTypeException {
       String name = Types.extractArguments(arguments, String.class);
@@ -150,6 +154,7 @@ public class TopLevelScope implements TruffleObject {
       return context.getEnvironment().asGuestValue(context);
     }
 
+    @CompilerDirectives.TruffleBoundary
     private static Object compile(Object[] arguments, Context context)
         throws UnsupportedTypeException, ArityException {
       boolean shouldCompileDependencies = Types.extractArguments(arguments, Boolean.class);
