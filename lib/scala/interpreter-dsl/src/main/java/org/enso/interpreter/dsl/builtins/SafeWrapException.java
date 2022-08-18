@@ -34,12 +34,14 @@ public record SafeWrapException(Attribute.Class from, Attribute.Class to, Boolea
             if (to.equals(PanicExceptionClassName)) {
                 return List.of(
                         "  } catch (" + from + " e) {",
+                        "    com.oracle.truffle.api.CompilerDirectives.transferToInterpreter();",
                         "    Builtins builtins = Context.get(this).getBuiltins();",
                         "    throw new PanicException(e.getMessage(), this);"
                 );
             } else {
                 return List.of(
                         "  } catch (" + from + " e) {",
+                        "    com.oracle.truffle.api.CompilerDirectives.transferToInterpreter();",
                         "    Builtins builtins = Context.get(this).getBuiltins();",
                         "    throw new PanicException(builtins.error().make" + to + "(e), this);"
                 );
@@ -55,6 +57,7 @@ public record SafeWrapException(Attribute.Class from, Attribute.Class to, Boolea
             String errorParameterCode = errorParameters.isEmpty() ? "" : ", " + StringUtils.join(errorParameters, ", ");
             return List.of(
                     "  } catch (" + from + " e) {",
+                        "    com.oracle.truffle.api.CompilerDirectives.transferToInterpreter();",
                     "    Builtins builtins = Context.get(this).getBuiltins();",
                     "    throw new PanicException(builtins.error().make" + to + "(self" + errorParameterCode + "), this);"
             );

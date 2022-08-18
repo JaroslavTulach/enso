@@ -239,6 +239,7 @@ public class Error {
       this.original = original;
     }
 
+    @CompilerDirectives.TruffleBoundary
     static AbstractTruffleException wrap(Throwable cause, Context ctx) {
       var env = ctx.getEnvironment();
       if (env.isHostException(cause)) {
@@ -257,6 +258,7 @@ public class Error {
     }
 
     @ExportMessage
+    @CompilerDirectives.TruffleBoundary
     public Object getExceptionMessage() {
       if (getMessage() != null) {
         return Text.create(getMessage());
@@ -266,6 +268,7 @@ public class Error {
     }
 
     @ExportMessage
+    @CompilerDirectives.TruffleBoundary
     String toDisplayString(boolean sideEffects) {
       return original.toString();
     }

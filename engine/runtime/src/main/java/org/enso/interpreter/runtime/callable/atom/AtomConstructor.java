@@ -291,6 +291,7 @@ public final class AtomConstructor implements TruffleObject {
   }
 
   /** @return the fully qualified name of this constructor. */
+  @CompilerDirectives.TruffleBoundary
   public QualifiedName getQualifiedName() {
     if (this == this.getDefinitionScope().getAssociatedType()) {
       return definitionScope.getModule().getName();
