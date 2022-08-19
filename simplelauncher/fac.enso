@@ -1,0 +1,9 @@
+fac n =
+    facacc a m = if m <= 1 then a else
+        @Tail_Call facacc a*m m-1
+
+    facacc 1 n
+
+
+main = fac 10
+
