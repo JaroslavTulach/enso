@@ -23,7 +23,7 @@ public final class Launcher {
         } catch (URISyntaxException ex) {
             throw new IllegalStateException(ex);
         }
-        
+
         System.setProperty("truffle.class.path.append", new File(f, "runtime.jar").getAbsolutePath());
         Path dist = Paths.get(f.toURI()).resolve(Paths.get("built-distribution", "enso-engine-0.0.0-dev-linux-amd64", "enso-0.0.0-dev", "component"));
         if (!Files.exists(dist)) {
@@ -36,6 +36,7 @@ public final class Launcher {
                 .allowExperimentalOptions(true)
                 .logHandler(new ByteArrayOutputStream())
                 .option("enso.languageHomeOverride", dist.toString())
+                .option("enso.disableIrCaches", "true")
                 .build();
         Context ctx = Context.newBuilder()
                 .engine(eng)
@@ -61,7 +62,7 @@ public final class Launcher {
                 "main = 'Hello from Enso!'",
                 "demo.enso"
             ).build();
-            
+
             System.err.println("Provide a path to .enso file. Meanwhile executing: " + src.getCharacters());
         }
         // System.err.println("source: " + src);
