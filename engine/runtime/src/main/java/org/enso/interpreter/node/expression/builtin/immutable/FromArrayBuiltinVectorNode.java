@@ -7,8 +7,7 @@ import com.oracle.truffle.api.interop.UnsupportedMessageException;
 import com.oracle.truffle.api.library.CachedLibrary;
 import com.oracle.truffle.api.nodes.Node;
 import org.enso.interpreter.dsl.*;
-import org.enso.interpreter.epb.node.CoercePrimitiveNode;
-import org.enso.interpreter.node.expression.foreign.CoerceNothing;
+import org.enso.interpreter.node.expression.builtin.interop.syntax.HostValueToEnsoNode;
 import org.enso.interpreter.runtime.Context;
 import org.enso.interpreter.runtime.data.Array;
 import org.enso.interpreter.runtime.error.PanicException;
@@ -19,8 +18,7 @@ import org.enso.interpreter.runtime.data.Vector;
     name = "from_array",
     description = "Creates a Vector by copying Array content.")
 public abstract class FromArrayBuiltinVectorNode extends Node {
-  private @Child CoercePrimitiveNode coercePrimitiveNode = CoercePrimitiveNode.build();
-  private @Child CoerceNothing coerceNothingNode = CoerceNothing.build();
+  private @Child HostValueToEnsoNode toEnso = HostValueToEnsoNode.build();
 
   static FromArrayBuiltinVectorNode build() {
     return FromArrayBuiltinVectorNodeGen.create();
@@ -41,7 +39,7 @@ public abstract class FromArrayBuiltinVectorNode extends Node {
       for (int i = 0; i < length; i++) {
         try {
           var value = interop.readArrayElement(arr, i);
-          target[i] = coerceNothingNode.execute(coercePrimitiveNode.execute(value));
+          target[i] = toEnso.execute(value);
         } catch (InvalidArrayIndexException ex) {
           var ctx = Context.get(this);
           var err = ctx.getBuiltins().error().makeInvalidArrayIndexError(arr, i);

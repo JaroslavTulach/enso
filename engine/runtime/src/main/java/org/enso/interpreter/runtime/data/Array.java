@@ -7,12 +7,10 @@ import com.oracle.truffle.api.library.CachedLibrary;
 import com.oracle.truffle.api.library.ExportLibrary;
 import com.oracle.truffle.api.library.ExportMessage;
 import org.enso.interpreter.dsl.Builtin;
-import org.enso.interpreter.node.expression.builtin.error.InvalidArrayIndexError;
 import org.enso.interpreter.runtime.Context;
 import org.enso.interpreter.runtime.library.dispatch.TypesLibrary;
 
 import java.util.Arrays;
-import org.enso.interpreter.runtime.error.WithWarnings;
 
 /** A primitive boxed array type for use in the runtime. */
 @ExportLibrary(InteropLibrary.class)
@@ -87,9 +85,6 @@ public final class Array implements TruffleObject {
       throw InvalidArrayIndexException.create(index);
     }
     var e = items[(int) index];
-    if (e instanceof WithWarnings w) {
-      return w.getValue();
-    }
     return e;
   }
 
