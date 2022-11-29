@@ -1,0 +1,46 @@
+import project.Data.Ordering.Ordering
+import project.Data.Pair.Pair
+from Standard.Base import Number, Decimal
+import project.Data.Text.Text
+import project.Data.Any.Any
+import project.Nothing.Nothing
+import project.Meta
+import project.IO
+
+from project.Data.Boolean import Boolean, True, False
+from project.Data.Json import all
+from project.Data.Range import all
+from project.Error.Common import Error, dataflow_error_handler
+
+type Eq T
+    Default
+    Custom (hashCode : T -> Integer) (equals : T -> T -> Boolean)
+
+Eq.from (that:Any) = Eq.Default
+Eq.from (that:Number) =
+    IO.println "Eq.from Number"
+    IO.println that
+    eqNumber
+
+eqNumber = Eq.Custom hashNumber equalsNumber # can this be singleton!?
+hashNumber x = x
+equalsNumber a b = a == b
+    
+
+Any.=== self that = 
+    IO.println "Calling === on "
+    IO.println self
+    IO.println " with that "
+    IO.println that
+    
+    eqSelf = Eq.from self
+    eqThat = Eq.from that
+
+    IO.println eqSelf
+    IO.println eqThat
+
+    # same = Meta.is_same_object eqSelf eqThat # if the above eqNumber could be singleton!
+    same = eqSelf == eqThat
+    if same then IO.println "same use Eq.Custom.equals" else IO.println "use default =="
+    
+

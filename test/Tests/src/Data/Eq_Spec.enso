@@ -1,0 +1,15 @@
+from Standard.Base import all
+import Standard.Base.Data.Index_Sub_Range
+from Standard.Base.Data.Eq import all
+
+from Standard.Test import Test, Test_Suite
+
+spec = Test.group "===" <|
+    Test.specify "Try to compare" <|
+        x = 10
+        y = 20.3
+        t = x === y
+        t . should_equal True
+        
+
+main = Test_Suite.run_main spec

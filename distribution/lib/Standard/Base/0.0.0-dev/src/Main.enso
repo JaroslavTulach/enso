@@ -7,6 +7,7 @@ import project.Data.Map.Map
 import project.Data.Vector.Vector
 import project.Function
 import project.IO
+from project.Data.Eq import all
 import project.Math
 import project.Nothing.Nothing
 import project.Polyglot
@@ -32,6 +33,7 @@ export project.Data.List.List
 export project.Data.Map.Map
 export project.Data.Vector.Vector
 export project.IO
+from project.Data.Eq export all
 export project.Math
 export project.Nothing.Nothing
 export project.Polyglot
