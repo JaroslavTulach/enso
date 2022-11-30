@@ -13,34 +13,27 @@ from project.Data.Range import all
 from project.Error.Common import Error, dataflow_error_handler
 
 type Eq T
-    Default
-    Custom (hashCode : T -> Integer) (equals : T -> T -> Boolean)
+    hash_code : T -> Integer
+    hash_code _ = Nothing
+    eq : T -> T -> Boolean
+    eq _ _ = Nothing
 
-Eq.from (that:Any) = Eq.Default
-Eq.from (that:Number) =
-    IO.println "Eq.from Number"
-    IO.println that
-    eqNumber
+Any.equality : Any -> Eq | Nothing
+Any.equality = Nothing
 
-eqNumber = Eq.Custom hashNumber equalsNumber # can this be singleton!?
-hashNumber x = x
-equalsNumber a b = a == b
-    
+type Num_Eq
+    hash_code n = n
+    eq n1 n2 = n1 == n2
 
-Any.=== self that = 
-    IO.println "Calling === on "
-    IO.println self
-    IO.println " with that "
-    IO.println that
-    
-    eqSelf = Eq.from self
-    eqThat = Eq.from that
+Number.equality = Num_Eq
 
-    IO.println eqSelf
-    IO.println eqThat
+Any.=== self that =
+    eq_self = self.equality
+    eq_that = that.equality
 
-    # same = Meta.is_same_object eqSelf eqThat # if the above eqNumber could be singleton!
-    same = eqSelf == eqThat
-    if same then IO.println "same use Eq.Custom.equals" else IO.println "use default =="
-    
-
+    similar_type = eq_self == eq_that
+    if similar_type.not then False else
+        hash_self = eq_self.hash_code self
+        hash_that = eq_self.hash_code that
+        if hash_self != hash_that then False else
+            eq_self.eq self that

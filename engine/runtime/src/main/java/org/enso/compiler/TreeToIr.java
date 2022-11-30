@@ -847,6 +847,9 @@ final class TreeToIr {
       case Tree.App app -> translateTypeApplication(app);
       case Tree.OprApp app -> {
         var op = app.getOpr().getRight();
+        if (op == null) {
+          throw new UnhandledEntity(app, "translateType");
+        }
         yield switch (op.codeRepr()) {
           case "." -> {
             final Option<IdentifiedLocation> loc = getIdentifiedLocation(tree);
