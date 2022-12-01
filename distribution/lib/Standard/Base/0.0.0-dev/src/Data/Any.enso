@@ -7,7 +7,7 @@ import project.Meta
 from project.Data.Boolean import Boolean, True, False
 from project.Data.Json import all
 from project.Data.Range import all
-from project.Error.Common import Error, dataflow_error_handler
+from project.Error.Common import Error, dataflow_error_handler, Type_Error_Data
 
 ## Any is the universal top-type, with all other types being subsumed by it.
 
@@ -147,7 +147,11 @@ type Any
                  a = 7 * 28
                  a > 147
     > : Any -> Boolean
-    > self that = self.compare_to that == Ordering.Greater
+    > self that = case self.comparator of
+        Nothing -> Error.throw (Type_Error_Data Text self "self")
+        c -> if that.comparator != c then Error.throw (Type_Error_Data Text that "that") else
+            ordering = c.compare self that
+            ordering == Ordering.Greater 
 
     ## ALIAS Greater Than or Equal
 
@@ -173,9 +177,11 @@ type Any
                  a = 6 * 21
                  a >= 147
     >= : Any -> Boolean
-    >= self that =
-        ordering = self.compare_to that
-        (ordering == Ordering.Greater) || (ordering == Ordering.Equal)
+    >= self that = case self.comparator of
+        Nothing -> Error.throw (Type_Error_Data Text self "self")
+        c -> if that.comparator != c then Error.throw (Type_Error_Data Text that "that") else
+            ordering = c.compare self that
+            (ordering == Ordering.Greater) || (ordering == Ordering.Equal)
 
     ## ALIAS Less Than
 
@@ -200,7 +206,11 @@ type Any
                  a = 7 * 21
                  a < 147
     < : Any -> Boolean
-    < self that = self.compare_to that == Ordering.Less
+    < self that = case self.comparator of
+        Nothing -> Error.throw (Type_Error_Data Text self "self")
+        c -> if that.comparator != c then Error.throw (Type_Error_Data Text that "that") else
+            ordering = c.compare self that
+            ordering == Ordering.Less
 
     ## ALIAS Less Than or Equal
 
@@ -226,9 +236,16 @@ type Any
                  a = 7 * 21
                  a < 147
     <= : Any -> Boolean
-    <= self that =
-        ordering = self.compare_to that
-        (ordering == Ordering.Less) || (ordering == Ordering.Equal)
+    <= self that = case self.comparator of
+        Nothing -> Error.throw (Type_Error_Data Text self "self")
+        c -> if that.comparator != c then Error.throw (Type_Error_Data Text that "that") else
+            ordering = c.compare self that
+            (ordering == Ordering.Less) || (ordering == Ordering.Equal)
+
+    ## Provides ordering for this object
+
+    comparator : Any
+    comparator self = Nothing
 
     ## Checks if the type is an instance of `Nothing`.
 

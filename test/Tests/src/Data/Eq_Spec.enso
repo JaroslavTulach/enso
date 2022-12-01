@@ -4,26 +4,32 @@ from Standard.Base.Data.Eq import all
 
 from Standard.Test import Test, Test_Suite
 
-spec = Test.group "Test equality on numbers" <|
-    Test.specify "Compare different numbers" <|
-        x = 10
-        y = 20.3
-        t = x === y
-        t . should_equal False
+spec = 
+    Test.group "Test equality on numbers" <|
+        Test.specify "Compare different numbers" <|
+            x = 10
+            y = 20.3
+            t = x === y
+            t . should_equal False
 
-    Test.specify "Compare same numbers" <|
-        x = 10
-        y = 10
-        t = x === y
-        t . should_equal True
+        Test.specify "Compare same numbers" <|
+            x = 10
+            y = 10
+            t = x === y
+            t . should_equal True
 
-    Test.specify "Different hash prevents equality" <|
-        x = Wrong_Hash.Elem1
-        y = Wrong_Hash.Elem2
+        Test.specify "Different hash prevents equality" <|
+            x = Wrong_Hash.Elem1
+            y = Wrong_Hash.Elem2
 
-        t = x === y
-        t . should_equal False
-
+            t = x === y
+            t . should_equal False
+    Test.group "Test inequality on numbers" <|
+        Test.specify "Compare two numbers" <|
+            x = 10
+            y = 11
+            t = x < y
+            t . should_equal True
 
 type Wrong_Hash
     Elem1

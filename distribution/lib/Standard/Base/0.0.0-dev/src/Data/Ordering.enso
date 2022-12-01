@@ -1,4 +1,8 @@
 import project.Data.Numbers.Integer
+import project.Data.Any
+from project.Data.Boolean import Boolean,True,False
+from project.Error.Common import Error, Type_Error_Data
+import project.Nothing
 
 ## Types representing the ordering of values.
 
@@ -44,3 +48,12 @@ type Ordering
     from_sign : Integer -> Ordering
     from_sign sign = if sign == 0 then Ordering.Equal else
         if sign > 0 then Ordering.Greater else Ordering.Less
+
+
+type Comparator T
+    compare : T -> T -> Ordering ! Type_Error_Data
+    compare self o1 _ = Error.throw (Type_Error_Data Comparator o1 "o1")
+
+    hash : T -> (Integer | Nothing)
+    hash = _ = Nothing
+

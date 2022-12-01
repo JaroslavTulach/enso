@@ -70,6 +70,8 @@ type Text
             comparison_result = Text_Utils.compare_normalized self that
             Ordering.from_sign comparison_result
 
+    comparator self = Text_Comparator
+
     ## Checks whether `self` is equal to `that`, ignoring the case of the texts.
 
        Arguments:
@@ -147,3 +149,10 @@ type Text
              "aaa".not_empty
     not_empty : Boolean
     not_empty self = self.is_empty.not
+
+
+## PRIVATE
+
+type Text_Comparator
+    compare self t1 t2 = t1.compare_to t2
+    hash self _ = Error.throw "No hash for Text"
