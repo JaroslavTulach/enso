@@ -4,7 +4,7 @@ from Standard.Base.Data.Eq import all
 
 from Standard.Test import Test, Test_Suite
 
-spec = 
+spec =
     Test.group "Test equality on numbers" <|
         Test.specify "Compare different numbers" <|
             x = 10
@@ -31,17 +31,44 @@ spec =
             t = x < y
             t . should_equal True
 
+    Test.group "Rational Numbers" <|
+        Test.specify "3/4 == 6/8" <|
+            r1 = Rational.Fraction 3 4
+            r2 = Rational.Fraction 6 8
+            t = r1 === r2
+            t . should_equal True
+
+        Test.specify "1/2 != 2/6" <|
+            r1 = Rational.Fraction 1 2
+            r2 = Rational.Fraction 2 6
+            t = r1 === r2
+            t . should_equal False
+
 type Wrong_Hash
     Elem1
     Elem2
 
-Wrong_Hash.equality self = Wrong_Hash_Eq
+Wrong_Hash.comparator self = Wrong_Hash_Eq
 
 type Wrong_Hash_Eq
-    hash_code e = case e of
+    hash self e = case e of
         Wrong_Hash.Elem1 -> 1
         Wrong_Hash.Elem2 -> 2
-    eq _ _ = True
+    compare self _ _ = True
 
+type Rational
+    Fraction (numerator:Integer) (denominator:Integer)
+
+    comparator self =
+        Rational_Ordering
+
+type Rational_Ordering
+    compare self r1 r2 =
+        v1 = r1.numerator * r2.denominator
+        v2 = r2.numerator * r1.denominator
+        if v1 < v2 then Ordering.Less else
+            if v1 > v2 then Ordering.Greater else
+                Ordering.Equal
+    hash self _ = 42
 
 main = Test_Suite.run_main spec
