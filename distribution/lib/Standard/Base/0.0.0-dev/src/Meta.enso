@@ -270,8 +270,13 @@ get_constructor_name atom_constructor = @Builtin_Method "Meta.get_constructor_na
    Arguments:
    - constructor: The constructor for the atom to create.
    - fields: The arguments to pass to constructor.
-new_atom : Any -> Array -> Atom
-new_atom constructor fields = @Builtin_Method "Meta.new_atom"
+   - lazy_index: index of an element to replace by a initialization function or Nothing
+new_atom : Any -> Array -> Decimal -> Atom
+new_atom constructor fields lazy_index=-1 = new_atom_builtin constructor fields lazy_index
+
+new_atom_builtin : Any -> Array -> Decimal -> Atom
+new_atom_builtin constructor fields lazy_index = @Builtin_Method "Meta.new_atom_builtin"
+
 
 lazy_atom : (Nothing -> Atom) -> Atom
 lazy_atom constructor fields = @Builtin_Method "Meta.lazy_atom"
