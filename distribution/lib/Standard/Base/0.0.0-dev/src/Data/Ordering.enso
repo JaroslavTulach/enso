@@ -59,8 +59,14 @@ import project.Nothing
         - if the result is `Ordering.Equal` the system also checks that both instances have the same `hash`
         - the `hash` code check may be done only from time to time to speed things up
 
-Any.comparator : Any | Nothing
-Any.comparator self = Nothing
+type Comparable
+    compare : Any -> Any -> (Ordering | Nothing)
+    compare self x y = Nothing
+
+    hash : Any -> (Integer | Nothing)
+    hash self x = Nothing
+
+Comparable.from (_:Any) = Nothing
 
 ## Types representing the ordering of values.
 
