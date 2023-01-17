@@ -45,6 +45,7 @@ import project.Data.Text.Regex.No_Such_Group
 import project.Data.Text.Regex.Regex_Mode.Regex_Mode
 import project.Data.Text.Regex.Regex_Option.Regex_Option
 import project.Data.Text.Text
+import project.Data.Text.Prim_Text_Helper
 import project.Data.Text.Span.Utf_16_Span
 import project.Data.Vector.Vector
 import project.Meta
@@ -129,7 +130,7 @@ type Default_Engine
         unicode_regex = UnicodeRegex.new
 
         maybe_java_pattern = Panic.recover Any <|
-            Java_Pattern.compile (unicode_regex.transform expression) options_bitmask
+            Prim_Text_Helper.compile_regex (unicode_regex.transform expression) options_bitmask
 
         internal_pattern = maybe_java_pattern.map_error case _ of
             err : PatternSyntaxException -> Syntax_Error.Error ("The regex could not be compiled: " + err.getMessage)
@@ -196,7 +197,7 @@ type Pattern
         #normalized_input = if self.options.contains Regex_Option.Ascii_Matching then input else
         #    Text_Utils.normalize input
         normalized_input = input
-        internal_matcher = self.internal_pattern.matcher normalized_input . region start end
+        internal_matcher = self.internal_pattern.exec normalized_input 0 . region start end
 
         if self.options.contains Option.No_Anchoring_Bounds then
             internal_matcher.useAnchoringBounds False
@@ -348,10 +349,9 @@ type Pattern
                  input = "aa"
                  pattern.matches input
     matches : Text -> Boolean
-    matches self input = case self.match input mode=Regex_Mode.Full of
-        _ : Match -> True
-        _ : Vector -> True
-        _ -> False
+    matches self input =
+        m = self.internal_pattern.exec input 0
+        m . isMatch && m.getEnd 0 == input.length
 
     ## ADVANCED
 
