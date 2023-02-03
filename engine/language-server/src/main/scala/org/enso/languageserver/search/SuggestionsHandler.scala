@@ -47,6 +47,8 @@ import org.enso.text.editing.model.Position
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
+import scala.util.control.Breaks.breakable
+import scala.util.control.Breaks.break
 
 /** The handler of search requests.
   *
@@ -243,30 +245,38 @@ final class SuggestionsHandler(
       state.suggestionUpdatesQueue.enqueueAll(updates)
 
     case SuggestionUpdatesBatch(updates) =>
-      System.out.println("updates: " + updates)
       val modules = updates.map(_.module)
-      val hash = modules.hashCode()
-      System.out.println("  hash : " + updates)
-
+      val hash = modules.length
       val cache = new File(System.getProperty("user.dir") + File.separator + "sugg-" + hash)
-      System.out.println("  cache: " + cache)
+      System.out.println("  cache: " + cache + " exists: " + cache.exists)
+      System.out.println("modules: " + modules)
       val send = if (cache.exists) {
         try {
           val ois = new ObjectInputStream(new FileInputStream(cache))
-          val s = ois.readObject()
-          clients.foreach { clientId =>
-            sessionRouter ! DeliverToJsonController(
-              clientId, s
-            )
+          breakable {
+            while (true) {
+              val s = ois.readObject()
+              if (s == null) {
+                break()
+              }
+              clients.foreach { clientId =>
+                sessionRouter ! DeliverToJsonController(
+                  clientId, s
+                )
+              }
+            }
           }
+          self ! SuggestionsHandler.SuggestionUpdatesCompleted
           true
         } catch {
           case _ : java.io.IOException => false
+        } finally {
+          System.out.println("End")
         }
       } else {
         false
       }
-
+      System.out.println("send: " + send)
       if (!send) {
         traverseSeq(updates)(applyUpdateIfVersionChanged)
           .onComplete {
@@ -276,6 +286,8 @@ final class SuggestionsHandler(
                 modules.length,
                 modules.mkString(", ")
               )
+              val oos = new ObjectOutputStream(new FileOutputStream(cache))
+              System.out.println("Writing object to " + cache)
               results.foreach {
                 case Some(notification) =>
                   if (notification.updates.nonEmpty) {
@@ -286,12 +298,13 @@ final class SuggestionsHandler(
                         Some(cache)
                       )
                     }
-                    val oos = new ObjectOutputStream(new FileOutputStream(cache))
                     oos.writeObject(notification)
-                    oos.close()
                   }
                 case None =>
               }
+              oos.writeObject(null)
+              oos.close()
+              System.out.println("closed " + cache)
               self ! SuggestionsHandler.SuggestionUpdatesCompleted
             case Failure(ex) =>
               logger.error(
