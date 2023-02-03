@@ -1,5 +1,10 @@
 package org.enso.languageserver.search
 
+import java.io.File
+import java.io.FileInputStream
+import java.io.ObjectInputStream
+import java.io.FileOutputStream
+import java.io.ObjectOutputStream
 import java.util.UUID
 import java.util.concurrent.Executors
 import akka.actor.{Actor, ActorRef, Props, Stash, Status}
@@ -238,37 +243,66 @@ final class SuggestionsHandler(
       state.suggestionUpdatesQueue.enqueueAll(updates)
 
     case SuggestionUpdatesBatch(updates) =>
+      System.out.println("updates: " + updates)
       val modules = updates.map(_.module)
-      traverseSeq(updates)(applyUpdateIfVersionChanged)
-        .onComplete {
-          case Success(results) =>
-            logger.debug(
-              "Complete batch update of [{}] modules [{}].",
-              modules.length,
-              modules.mkString(", ")
+      val hash = modules.hashCode()
+      System.out.println("  hash : " + updates)
+
+      val cache = new File(System.getProperty("user.dir") + File.separator + "sugg-" + hash)
+      System.out.println("  cache: " + cache)
+      val send = if (cache.exists) {
+        try {
+          val ois = new ObjectInputStream(new FileInputStream(cache))
+          val s = ois.readObject()
+          clients.foreach { clientId =>
+            sessionRouter ! DeliverToJsonController(
+              clientId, s
             )
-            results.foreach {
-              case Some(notification) =>
-                if (notification.updates.nonEmpty) {
-                  clients.foreach { clientId =>
-                    sessionRouter ! DeliverToJsonController(
-                      clientId,
-                      notification
-                    )
-                  }
-                }
-              case None =>
-            }
-            self ! SuggestionsHandler.SuggestionUpdatesCompleted
-          case Failure(ex) =>
-            logger.error(
-              "Error applying suggestion database updates batch of [{}] modules [{}]. ({})",
-              modules.length,
-              modules.mkString(", "),
-              ex.getMessage
-            )
-            self ! SuggestionsHandler.SuggestionUpdatesCompleted
+          }
+          true
+        } catch {
+          case _ : java.io.IOException => false
         }
+      } else {
+        false
+      }
+
+      if (!send) {
+        traverseSeq(updates)(applyUpdateIfVersionChanged)
+          .onComplete {
+            case Success(results) =>
+              logger.debug(
+                "Complete batch update of [{}] modules [{}].",
+                modules.length,
+                modules.mkString(", ")
+              )
+              results.foreach {
+                case Some(notification) =>
+                  if (notification.updates.nonEmpty) {
+                    clients.foreach { clientId =>
+                      sessionRouter ! DeliverToJsonController(
+                        clientId,
+                        notification,
+                        Some(cache)
+                      )
+                    }
+                    val oos = new ObjectOutputStream(new FileOutputStream(cache))
+                    oos.writeObject(notification)
+                    oos.close()
+                  }
+                case None =>
+              }
+              self ! SuggestionsHandler.SuggestionUpdatesCompleted
+            case Failure(ex) =>
+              logger.error(
+                "Error applying suggestion database updates batch of [{}] modules [{}]. ({})",
+                modules.length,
+                modules.mkString(", "),
+                ex.getMessage
+              )
+              self ! SuggestionsHandler.SuggestionUpdatesCompleted
+          }
+      }
       context.become(
         initialized(
           projectName,

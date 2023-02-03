@@ -55,7 +55,7 @@ class SessionRouter extends Actor {
 
       context.become(running(updatedSessions))
 
-    case DeliverToJsonController(clientId, payload) =>
+    case DeliverToJsonController(clientId, payload, _) =>
       sessions
         .get(clientId)
         .foreach(_.maybeJsonSession.foreach(_.rpcController ! payload))
@@ -77,7 +77,7 @@ object SessionRouter {
     * @param payload a payload that is delivered to the controller
     * @tparam A a type of payload
     */
-  case class DeliverToJsonController[A](clientId: ClientId, payload: A)
+  case class DeliverToJsonController[A](clientId: ClientId, payload: A, cache : Option[java.io.File] = None)
 
   /** A command used to deliver an arbitrary `payload` to a data controller
     * identified by the client id.
