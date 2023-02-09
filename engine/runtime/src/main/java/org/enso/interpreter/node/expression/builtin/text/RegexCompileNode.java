@@ -1,6 +1,6 @@
 package org.enso.interpreter.node.expression.builtin.text;
 
-import com.oracle.truffle.api.TruffleLanguage;
+import com.oracle.truffle.api.dsl.Cached;
 import org.enso.interpreter.dsl.BuiltinMethod;
 import org.enso.interpreter.runtime.data.text.Text;
 
@@ -21,11 +21,29 @@ public abstract class RegexCompileNode extends Node {
 
   abstract Object execute(Object self, Object pattern, Object options);
 
+
+
+  @Specialization(limit = "3", guards = {
+    "pattern.toString().equals(cachedPattern)",
+    "options == cachedOptions"
+  })
+  Object parseRegexPattern(Object self, Text pattern, long options,
+    @Cached("pattern.toString()") String cachedPattern,
+    @Cached("options") long cachedOptions,
+    @Cached("compile(cachedPattern, cachedOptions)") Object regex
+  ) {
+    return regex;
+  }
+
   @Specialization
-  Object parseRegexPattern(Object self, Text pattern, long options) {
+  Object alwaysCompile(Object self, Text pattern, long options) {
+    return compile(pattern.toString(), options);
+  }
+
+  Object compile(String pattern, long options) {
     var ctx = EnsoContext.get(this);
     var env = ctx.getEnvironment();
-    var s = "Flavor=ECMAScript/" + pattern.toString() + "/"; // + options;
+    var s = "Flavor=ECMAScript/" + pattern + "/"; // + options;
     var src =
         Source.newBuilder("regex", s, "myRegex")
             .mimeType("application/tregex")
