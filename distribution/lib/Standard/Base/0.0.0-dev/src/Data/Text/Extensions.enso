@@ -433,8 +433,17 @@ Text.replace self term="" new_text="" mode=Regex_Mode.All matcher=Text_Matcher.C
                     _ -> Error.throw (Illegal_Argument.Error "Invalid mode.")
             Text_Utils.replace_spans self spans_array new_text
         _ : Regex_Matcher ->
-            compiled_pattern = matcher.compile term
-            compiled_pattern.replace self new_text mode=mode
+            p = Regex.compile term
+
+            go t =
+                res = p.internal_pattern.exec t 0
+                if res.isMatch.not then t else
+                    s = res.getStart 0
+                    e = res.getEnd 0
+                    b = t.take (Range.new 0 s)
+                    a = if e >= t.length then "" else t.take (Range.new e t.length)
+                    @Tail_Call go (b + new_text + a)
+            go self
 
 ## ALIAS Get Words
 
