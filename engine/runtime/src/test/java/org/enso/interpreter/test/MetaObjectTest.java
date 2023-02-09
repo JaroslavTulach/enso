@@ -21,25 +21,22 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-public class MetaObjectTest {
+public class MetaObjectTest extends TestBase {
   private Context ctx;
 
   @Before
-  public void prepareCtx() throws Exception {
-    Engine eng =
-        Engine.newBuilder()
-            .allowExperimentalOptions(true)
-            .logHandler(new ByteArrayOutputStream())
-            .option(
-                RuntimeOptions.LANGUAGE_HOME_OVERRIDE,
-                Paths.get("../../distribution/component").toFile().getAbsolutePath())
-            .build();
-    this.ctx = Context.newBuilder().engine(eng).allowIO(true).allowAllAccess(true).build();
-    final Map<String, Language> langs = ctx.getEngine().getLanguages();
-    assertNotNull("Enso found: " + langs, langs.get("enso"));
+  public void prepareCtx() {
+    ctx = createDefaultContext();
+  }
+
+  @After
+  public void disposeCtx() {
+    ctx.close();
   }
 
   @Test
@@ -80,13 +77,19 @@ public class MetaObjectTest {
     var g = ValuesGenerator.create(ctx);
     var expecting = new HashSet<String>();
     for (var f : ConstantsGen.class.getFields()) {
-      var s = (String) f.get(null);
-      expecting.add(s);
+      if (!f.getName().endsWith("_BUILTIN")) {
+        var s = (String) f.get(null);
+        expecting.add(s);
+      }
     }
     var w = new StringBuilder();
     var f = new StringWriter();
     var err = new PrintWriter(f);
     for (var t : g.allTypes()) {
+      if (t.isNull()) {
+        expecting.remove("Standard.Base.Nothing.Nothing");
+        continue;
+      }
       try {
         var n = t.getMetaQualifiedName();
         assertNotNull("Type " + t + " has meta name", n);
@@ -141,6 +144,9 @@ public class MetaObjectTest {
     var g = ValuesGenerator.create(ctx);
     var expecting = new LinkedHashSet<Value>();
     for (var t : g.allTypes()) {
+      if (t.isNull()) {
+        continue;
+      }
       switch (t.getMetaSimpleName()) {
         // represented as primitive values without meta object
         case "Decimal" -> {}

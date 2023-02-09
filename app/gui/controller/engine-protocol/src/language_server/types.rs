@@ -211,7 +211,7 @@ pub struct ExpressionUpdate {
     pub expression_id:  ExpressionId,
     #[serde(rename = "type")] // To avoid collision with the `type` keyword.
     pub typename: Option<String>,
-    pub method_pointer: Option<SuggestionId>,
+    pub method_pointer: Option<MethodPointer>,
     pub profiling_info: Vec<ProfilingInfo>,
     pub from_cache:     bool,
     pub payload:        ExpressionUpdatePayload,
@@ -232,7 +232,9 @@ pub enum ProfilingInfo {
 #[allow(missing_docs)]
 #[serde(tag = "type")]
 pub enum ExpressionUpdatePayload {
-    Value,
+    Value {
+        warnings: Option<Warnings>,
+    },
     #[serde(rename_all = "camelCase")]
     DataflowError {
         trace: Vec<ExpressionId>,
@@ -247,6 +249,20 @@ pub enum ExpressionUpdatePayload {
         message:  Option<String>,
         progress: Option<f64>,
     },
+}
+
+/// Information about warnings associated with the value.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[allow(missing_docs)]
+pub struct Warnings {
+    /// The number of attached warnings.
+    pub count: usize,
+    /// If the value has a single warning attached, this field contains textual representation of
+    /// gg
+    ///
+    /// the attached warning. In general, warning values should be obtained by attaching an
+    /// appropriate visualization to a value.
+    pub value: Option<String>,
 }
 
 
@@ -999,20 +1015,28 @@ pub enum SuggestionEntry {
     },
     #[serde(rename_all = "camelCase")]
     Function {
-        external_id: Option<Uuid>,
-        name:        String,
-        module:      String,
-        arguments:   Vec<SuggestionEntryArgument>,
-        return_type: String,
-        scope:       SuggestionEntryScope,
+        external_id:            Option<Uuid>,
+        name:                   String,
+        module:                 String,
+        arguments:              Vec<SuggestionEntryArgument>,
+        return_type:            String,
+        scope:                  SuggestionEntryScope,
+        documentation:          Option<String>,
+        documentation_html:     Option<String>,
+        #[serde(default, deserialize_with = "enso_prelude::deserialize_null_as_default")]
+        documentation_sections: Vec<DocSection>,
     },
     #[serde(rename_all = "camelCase")]
     Local {
-        external_id: Option<Uuid>,
-        name:        String,
-        module:      String,
-        return_type: String,
-        scope:       SuggestionEntryScope,
+        external_id:            Option<Uuid>,
+        name:                   String,
+        module:                 String,
+        return_type:            String,
+        scope:                  SuggestionEntryScope,
+        documentation:          Option<String>,
+        documentation_html:     Option<String>,
+        #[serde(default, deserialize_with = "enso_prelude::deserialize_null_as_default")]
+        documentation_sections: Vec<DocSection>,
     },
     #[serde(rename_all = "camelCase")]
     Module {
@@ -1093,8 +1117,8 @@ impl<T> FieldUpdate<T> {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
+#[serde(tag = "type")]
 pub enum SuggestionArgumentUpdate {
     #[serde(rename_all = "camelCase")]
     Add { index: usize, argument: SuggestionEntryArgument },
@@ -1141,17 +1165,17 @@ pub enum SuggestionsDatabaseUpdate {
 /// The modification of suggestion database entry.
 #[derive(Hash, Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-#[serde(tag = "type")]
+#[serde(rename_all = "camelCase")]
 pub struct SuggestionsDatabaseModification {
     #[serde(default)]
-    pub arguments:          Vec<SuggestionArgumentUpdate>,
-    pub module:             Option<FieldUpdate<String>>,
-    pub self_type:          Option<FieldUpdate<String>>,
-    pub return_type:        Option<FieldUpdate<String>>,
-    pub documentation:      Option<FieldUpdate<String>>,
-    pub documentation_html: Option<FieldUpdate<String>>,
-    pub scope:              Option<FieldUpdate<SuggestionEntryScope>>,
-    pub reexport:           Option<FieldUpdate<String>>,
+    pub arguments:              Vec<SuggestionArgumentUpdate>,
+    pub module:                 Option<FieldUpdate<String>>,
+    pub self_type:              Option<FieldUpdate<String>>,
+    pub return_type:            Option<FieldUpdate<String>>,
+    pub documentation:          Option<FieldUpdate<String>>,
+    pub documentation_sections: Option<FieldUpdate<Vec<DocSection>>>,
+    pub scope:                  Option<FieldUpdate<SuggestionEntryScope>>,
+    pub reexport:               Option<FieldUpdate<String>>,
 }
 
 /// Notification about change in the suggestions database.
@@ -1218,7 +1242,7 @@ pub mod test {
             method_pointer: None,
             profiling_info: default(),
             from_cache:     false,
-            payload:        ExpressionUpdatePayload::Value,
+            payload:        ExpressionUpdatePayload::Value { warnings: None },
         }
     }
 
@@ -1226,7 +1250,7 @@ pub mod test {
     /// method pointer.
     pub fn value_update_with_method_ptr(
         id: ExpressionId,
-        method_pointer: SuggestionId,
+        method_pointer: MethodPointer,
     ) -> ExpressionUpdate {
         ExpressionUpdate {
             expression_id:  id,
@@ -1234,7 +1258,7 @@ pub mod test {
             method_pointer: Some(method_pointer),
             profiling_info: default(),
             from_cache:     false,
-            payload:        ExpressionUpdatePayload::Value,
+            payload:        ExpressionUpdatePayload::Value { warnings: None },
         }
     }
 

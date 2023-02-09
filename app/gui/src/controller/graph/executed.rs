@@ -7,6 +7,7 @@
 use crate::prelude::*;
 
 use crate::model::execution_context::ComponentGroup;
+use crate::model::execution_context::ComputedValueInfo;
 use crate::model::execution_context::ComputedValueInfoRegistry;
 use crate::model::execution_context::LocalCall;
 use crate::model::execution_context::QualifiedMethodPointer;
@@ -75,7 +76,6 @@ pub enum Notification {
 #[derive(Clone, CloneRef, Debug)]
 pub struct Handle {
     #[allow(missing_docs)]
-    pub logger:    Logger,
     /// A handle to basic graph operations.
     graph:         Rc<RefCell<controller::Graph>>,
     /// Execution Context handle, its call stack top contains `graph`'s definition.
@@ -91,12 +91,8 @@ pub struct Handle {
 impl Handle {
     /// Create handle for the executed graph that will be running the given method.
     #[profile(Task)]
-    pub async fn new(
-        parent: impl AnyLogger,
-        project: model::Project,
-        method: MethodPointer,
-    ) -> FallibleResult<Self> {
-        let graph = controller::Graph::new_method(parent, &project, &method).await?;
+    pub async fn new(project: model::Project, method: MethodPointer) -> FallibleResult<Self> {
+        let graph = controller::Graph::new_method(&project, &method).await?;
         let execution = project.create_execution_context(method.clone()).await?;
         Ok(Self::new_internal(graph, project, execution))
     }
@@ -120,10 +116,9 @@ impl Handle {
         project: model::Project,
         execution_ctx: model::ExecutionContext,
     ) -> Self {
-        let logger = Logger::new_sub(&graph.logger, "Executed");
         let graph = Rc::new(RefCell::new(graph));
         let notifier = default();
-        Handle { logger, graph, execution_ctx, project, notifier }
+        Handle { graph, execution_ctx, project, notifier }
     }
 
     /// See [`model::ExecutionContext::when_ready`].
@@ -226,7 +221,7 @@ impl Handle {
     pub async fn enter_method_pointer(&self, local_call: &LocalCall) -> FallibleResult {
         debug!("Entering node {}.", local_call.call);
         let method_ptr = &local_call.definition;
-        let graph = controller::Graph::new_method(&self.logger, &self.project, method_ptr);
+        let graph = controller::Graph::new_method(&self.project, method_ptr);
         let graph = graph.await?;
         self.execution_ctx.push(local_call.clone()).await?;
         debug!("Replacing graph with {graph:?}.");
@@ -237,18 +232,17 @@ impl Handle {
         Ok(())
     }
 
-    /// Attempts to get the method pointer of the specified node.
+    /// Attempts to get the computed value of the specified node.
     ///
-    /// Fails if there's no information about target method pointer (e.g. because node value hasn't
-    /// been yet computed by the engine).
-    pub fn node_method_pointer(
+    /// Fails if there's no information e.g. because node value hasn't been yet computed by the
+    /// engine.
+    pub fn node_computed_value(
         &self,
         node: double_representation::node::Id,
-    ) -> FallibleResult<Rc<MethodPointer>> {
+    ) -> FallibleResult<Rc<ComputedValueInfo>> {
         let registry = self.execution_ctx.computed_value_info_registry();
         let node_info = registry.get(&node).ok_or(NotEvaluatedYet(node))?;
-        let entry_id = *node_info.method_call.as_ref().ok_or(NoResolvedMethod(node))?;
-        self.project.suggestion_db().lookup_method_ptr(entry_id).map(Rc::new)
+        Ok(node_info)
     }
 
     /// Enter node by given ID.
@@ -260,8 +254,9 @@ impl Handle {
     /// been yet computed by the engine) or if method graph cannot be created (see
     /// `graph_for_method` documentation).
     pub async fn enter_node(&self, node: double_representation::node::Id) -> FallibleResult {
-        let definition = self.node_method_pointer(node)?;
-        let definition = (*definition).clone();
+        let computed_value = self.node_computed_value(node)?;
+        let method_pointer = computed_value.method_call.as_ref().ok_or(NoResolvedMethod(node))?;
+        let definition = method_pointer.clone();
         let local_call = LocalCall { call: node, definition };
         self.enter_method_pointer(&local_call).await
     }
@@ -273,7 +268,7 @@ impl Handle {
     pub async fn exit_node(&self) -> FallibleResult {
         let frame = self.execution_ctx.pop().await?;
         let method = self.execution_ctx.current_method();
-        let graph = controller::Graph::new_method(&self.logger, &self.project, &method).await?;
+        let graph = controller::Graph::new_method(&self.project, &method).await?;
         self.graph.replace(graph);
         self.notifier.publish(Notification::SteppedOutOfNode(frame.call)).await;
         Ok(())
@@ -301,6 +296,11 @@ impl Handle {
     /// Note that the controller returned by this method may change as the nodes are stepped into.
     pub fn graph(&self) -> controller::Graph {
         self.graph.borrow().clone_ref()
+    }
+
+    /// Get suggestion database from currently active graph.
+    pub fn suggestion_db(&self) -> Rc<model::SuggestionDatabase> {
+        self.graph.borrow().suggestion_db.clone()
     }
 
     /// Get a full qualified name of the module in the [`graph`]. The name is obtained from the
@@ -338,7 +338,8 @@ impl Context for Handle {
     fn call_info(&self, id: ast::Id, name: Option<&str>) -> Option<CalledMethodInfo> {
         let lookup_registry = || {
             let info = self.computed_value_info_registry().get(&id)?;
-            let entry = self.project.suggestion_db().lookup(info.method_call?).ok()?;
+            let method_call = info.method_call.as_ref()?;
+            let entry = self.project.suggestion_db().lookup_by_method_pointer(method_call)?;
             Some(entry.invocation_info())
         };
         let fallback = || self.graph.borrow().call_info(id, name);
@@ -384,9 +385,8 @@ pub mod tests {
 
     impl MockData {
         pub fn controller(&self) -> Handle {
-            let logger = Logger::new("test");
             let parser = parser_scala::Parser::new_or_panic();
-            let repository = Rc::new(model::undo_redo::Repository::new(&logger));
+            let repository = Rc::new(model::undo_redo::Repository::new());
             let module = self.module.plain(&parser, repository);
             let method = self.graph.method();
             let mut project = model::project::MockAPI::new();
@@ -403,7 +403,7 @@ pub mod tests {
             let suggestion_db = self.graph.suggestion_db();
             model::project::test::expect_suggestion_db(&mut project, suggestion_db);
             let project = Rc::new(project);
-            Handle::new(logger, project.clone_ref(), method).boxed_local().expect_ok()
+            Handle::new(project.clone_ref(), method).boxed_local().expect_ok()
         }
     }
 
@@ -482,7 +482,8 @@ pub mod tests {
 
         // Now send update that expression actually was computed to be a call to the second
         // suggestion entry and check that executed graph provides this info over the metadata one.
-        let update = value_update_with_method_ptr(id, 2);
+        let method_pointer = entry2.clone().try_into().unwrap();
+        let update = value_update_with_method_ptr(id, method_pointer);
         executed_graph.computed_value_info_registry().apply_updates(vec![update]);
         let info = get_invocation_info().unwrap();
         assert_call_info(info, &entry2);

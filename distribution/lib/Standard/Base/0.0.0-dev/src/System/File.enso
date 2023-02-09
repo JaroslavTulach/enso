@@ -25,6 +25,10 @@ import project.System.File.File_Permissions.File_Permissions
 
 from project.Data.Boolean import Boolean, True, False
 
+import project.Metadata.Widget
+from project.Metadata.Choice import Option
+import project.Metadata.Display
+
 polyglot java import org.enso.base.Encoding_Utils
 polyglot java import org.enso.base.encoding.ReportingStreamDecoder
 polyglot java import org.enso.base.encoding.ReportingStreamEncoder
@@ -159,7 +163,8 @@ type File
     with_input_stream self open_options action =
         Managed_Resource.bracket (self.new_input_stream open_options) (_.close) action
 
-    ## Read a file using the specified file format
+    ## ALIAS Load, Open
+       Read a file using the specified file format
 
        Arguments:
        - format: A `File_Format` object used to read file into memory.
@@ -192,7 +197,8 @@ type File
     read self format=Auto_Detect (on_problems=Problem_Behavior.Report_Warning) =
         format.read self on_problems
 
-    ## Reads all bytes in this file into a byte vector.
+    ## ALIAS Load Bytes, Open Bytes
+       Reads all bytes in this file into a byte vector.
 
        > Example
          Read all of the bytes in the file.
@@ -205,7 +211,8 @@ type File
         opts = [File_Access.Read]
         self.with_input_stream opts (_.read_all_bytes)
 
-    ## Reads the whole file into a `Text`, with specified encoding.
+    ## ALIAS Load Text, Open Text
+       Reads the whole file into a `Text`, with specified encoding.
 
        Arguments:
        - encoding: The text encoding to decode the file with. Defaults to UTF-8.
@@ -238,9 +245,36 @@ type File
              import Standard.Examples
 
              example_append = Examples.data_dir / "scratch_file"
+    @subpath get_child_widget
     / : (Text | File) -> File
     / self subpath = self.resolve subpath
 
+    ## Join two or more path segments together, normalizing the `..` and `.` subpaths.
+
+       Arguments:
+       - subpaths: The path segment or segments to join to the path of `self`.
+
+       > Example
+         Concatenate two file path segments.
+
+             import Standard.Examples
+
+             example_append = Examples.data_dir.join "scratch_file"
+
+       > Example
+         Concatenate multiple file path segments and normalizes the result.
+
+             import Standard.Examples
+
+             example_append = Examples.data_dir.join ["2022", "10", "31", "scratch_file"]
+    @subpaths get_child_widget
+    join : (Text | File | Vector) -> File
+    join self subpaths = case subpaths of
+        _ : Vector -> (subpaths.fold self c->p-> c / p) . normalize
+        _ -> self.join [subpaths]
+
+    ## PRIVATE
+       Internal method to join two path segments together.
     resolve : (Text | File) -> File
     resolve self = @Builtin_Method "File.resolve"
 
@@ -890,3 +924,12 @@ get_cwd = @Builtin_Method "File.get_cwd"
    - path: The path to obtain a file at.
 get_file : Text -> File
 get_file path = @Builtin_Method "File.get_file"
+
+## PRIVATE
+get_child_widget : File -> Widget
+get_child_widget file =
+    if file.exists.not then Nothing else
+        if file.is_directory.not then Nothing else
+            children = file.list
+            options = children.map c-> Option c.name c.name.pretty
+            Widget.Single_Choice values=options display=Display.Always

@@ -22,7 +22,6 @@ use enso_prelude::CloneRef;
 pub struct Registry {
     path_map: Rc<RefCell<HashMap<visualization::Path, visualization::Definition>>>,
     type_map: Rc<RefCell<HashMap<enso::Type, Vec<visualization::Definition>>>>,
-    logger:   Logger,
 }
 
 impl Registry {
@@ -30,8 +29,7 @@ impl Registry {
     pub fn new() -> Self {
         let path_map = default();
         let type_map = default();
-        let logger = Logger::new("Registry");
-        Registry { path_map, type_map, logger }
+        Registry { path_map, type_map }
     }
 
     /// Return a `Registry` pre-populated with default visualizations.
@@ -60,13 +58,7 @@ impl Registry {
         let class = class.into();
         match class {
             Ok(class) => self.add(class),
-            Err(err) => {
-                warning!(
-                    &self.logger,
-                    "Failed to add visualization class to registry due to error: \
-                                       {err}"
-                )
-            }
+            Err(err) => warn!("Failed to add visualization class to registry due to error: {err}"),
         };
     }
 
@@ -82,6 +74,19 @@ impl Registry {
             }
         }
         result
+    }
+
+    /// Return the `visualization::Definition` that should be used as default for the given type.
+    pub fn default_visualization_for_type(
+        &self,
+        tp: &enso::Type,
+    ) -> Option<visualization::Definition> {
+        // TODO[MM]: Visualisations are order by "matching the type" first, followed by and then
+        // "matching any type". So we just take the first one, which should be the most appropriate
+        // one. This should be replaced with the proper solution described in
+        // https://github.com/enso-org/enso/issues/5195
+        let valid_sources = self.valid_sources(tp);
+        valid_sources.into_iter().next()
     }
 
     /// Return the `visualization::Definition` registered for the given `visualization::Path`.
@@ -100,20 +105,24 @@ impl Registry {
 
     /// Add default visualizations to the registry.
     pub fn add_default_visualizations(&self) {
-        self.add(builtin::visualization::native::RawText::definition());
+        // Note that the order is important. Visualisations that are added first will be
+        // prioritised as default (as long as they have a matching type to the value they will
+        // represent.
+        self.add(builtin::visualization::native::text_visualization::text_visualisation());
+        self.try_add_java_script(builtin::visualization::java_script::table_visualization());
         self.try_add_java_script(builtin::visualization::java_script::scatter_plot_visualization());
         self.try_add_java_script(builtin::visualization::java_script::histogram_visualization());
         self.try_add_java_script(builtin::visualization::java_script::heatmap_visualization());
-        self.try_add_java_script(builtin::visualization::java_script::table_visualization());
         self.try_add_java_script(builtin::visualization::java_script::sql_visualization());
         self.try_add_java_script(builtin::visualization::java_script::geo_map_visualization());
         self.try_add_java_script(builtin::visualization::java_script::image_base64_visualization());
         self.try_add_java_script(builtin::visualization::java_script::warnings_visualization());
+        self.add(builtin::visualization::native::text_visualization::text_visualisation());
     }
 
     /// Return a default visualisation definition.
     pub fn default_visualisation() -> visualization::Definition {
-        builtin::visualization::native::RawText::definition()
+        builtin::visualization::native::text_visualization::text_visualisation()
     }
 }
 

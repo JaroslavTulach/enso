@@ -83,7 +83,7 @@ public final class Text implements TruffleObject {
         return false;
       }
       case UNKNOWN -> {
-        Normalizer2 normalizer = Normalizer2.getInstance(null, "nfc", Normalizer2.Mode.FCD);
+        Normalizer2 normalizer = Normalizer2.getNFDInstance();
         boolean isNormalized = normalizer.isNormalized(toString());
         setFcdNormalized(isNormalized);
         return isNormalized;
@@ -195,7 +195,8 @@ public final class Text implements TruffleObject {
     String str = toJavaStringNode.execute(this);
     // TODO This should be more extensible
     String replaced =
-        str.replace("'", "\\'")
+        str.replace("\\", "\\\\")
+            .replace("'", "\\'")
             .replace("\n", "\\n")
             .replace("\t", "\\t")
             .replace("\u0007", "\\a")

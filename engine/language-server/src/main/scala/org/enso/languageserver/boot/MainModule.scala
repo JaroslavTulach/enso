@@ -43,7 +43,7 @@ import org.enso.librarymanager.published.PublishedLibraryCache
 import org.enso.lockmanager.server.LockManagerService
 import org.enso.logger.masking.Masking
 import org.enso.loggingservice.{JavaLoggingLogHandler, LogLevel}
-import org.enso.polyglot.{RuntimeOptions, RuntimeServerInfo}
+import org.enso.polyglot.{HostAccessFactory, RuntimeOptions, RuntimeServerInfo}
 import org.enso.searcher.sql.{SqlDatabase, SqlSuggestionsRepo, SqlVersionsRepo}
 import org.enso.text.{ContentBasedVersioning, Sha3_224VersionCalculator}
 import org.graalvm.polyglot.Context
@@ -80,7 +80,11 @@ class MainModule(serverConfig: LanguageServerConfig, logLevel: LogLevel) {
   val languageServerConfig = Config(
     contentRoot,
     FileManagerConfig(timeout = 3.seconds),
-    VcsManagerConfig(timeout  = 3.seconds),
+    VcsManagerConfig(
+      initTimeout = 5.seconds,
+      timeout     = 3.seconds,
+      asyncInit   = true
+    ),
     PathWatcherConfig(),
     ExecutionContextConfig(),
     directoriesConfig,
@@ -106,7 +110,8 @@ class MainModule(serverConfig: LanguageServerConfig, logLevel: LogLevel) {
   log.trace("Created file system [{}].", fileSystem)
 
   val git = Git.withEmptyUserConfig(
-    Some(languageServerConfig.vcsManager.dataDirectory)
+    Some(languageServerConfig.vcsManager.dataDirectory),
+    languageServerConfig.vcsManager.asyncInit
   )
   log.trace("Created git [{}].", git)
 
@@ -253,7 +258,6 @@ class MainModule(serverConfig: LanguageServerConfig, logLevel: LogLevel) {
     system.actorOf(
       ContextRegistry
         .props(
-          suggestionsRepo,
           languageServerConfig,
           RuntimeFailureMapper(contentRootManagerWrapper),
           runtimeConnector,
@@ -270,6 +274,7 @@ class MainModule(serverConfig: LanguageServerConfig, logLevel: LogLevel) {
   val context = Context
     .newBuilder()
     .allowAllAccess(true)
+    .allowHostAccess(new HostAccessFactory().allWithTypeMapping())
     .allowExperimentalOptions(true)
     .option(RuntimeServerInfo.ENABLE_OPTION, "true")
     .option(RuntimeOptions.INTERACTIVE_MODE, "true")
