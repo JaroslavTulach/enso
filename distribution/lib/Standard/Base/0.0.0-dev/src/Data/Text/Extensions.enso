@@ -434,16 +434,38 @@ Text.replace self term="" new_text="" mode=Regex_Mode.All matcher=Text_Matcher.C
             Text_Utils.replace_spans self spans_array new_text
         _ : Regex_Matcher ->
             p = Regex.compile term
+            simple = new_text.index_of "$" . is_nothing
 
-            go t =
+            process res t = if simple then new_text else
+                dr = Regex.compile "\$([\$0-9])"
+
+                loop nt prep =
+                    dres = dr.internal_pattern.exec nt 0
+                    if dres.isMatch.not then prep + nt else
+                        at = dres.getStart 1
+                        ch = nt.at at
+                        case ch of
+                            '$' -> @Tail_Call loop (prep + '$') (nt.drop (Index_Sub_Range.First 2))
+                            num ->
+                                n = Integer.parse num
+                                s = res.getStart n
+                                e = res.getEnd n
+                                before = prep + t.take (Range.new s e)
+                                rest = nt.drop (Index_Sub_Range.First 2)
+                                @Tail_Call loop rest before
+
+                loop new_text ""
+
+            go t prep =
                 res = p.internal_pattern.exec t 0
-                if res.isMatch.not then t else
+                if res.isMatch.not then prep + t else
                     s = res.getStart 0
                     e = res.getEnd 0
-                    b = t.take (Range.new 0 s)
-                    a = if e >= t.length then "" else t.take (Range.new e t.length)
-                    @Tail_Call go (b + new_text + a)
-            go self
+                    before = t.take (Range.new 0 s)
+                    after = if e >= t.length then "" else t.take (Range.new e t.length)
+                    done = before + (process res t)
+                    @Tail_Call go after done
+            go self ""
 
 ## ALIAS Get Words
 

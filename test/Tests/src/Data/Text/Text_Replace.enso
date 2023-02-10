@@ -1,0 +1,27 @@
+from Standard.Base import all
+
+from Standard.Base.Data.Text.Text_Sub_Range import all
+
+from Standard.Test import Test, Test_Suite
+import Standard.Test.Extensions
+
+single_spec name replace = Test.group name <|
+    Test.specify "simple replace" <|
+        replace "hello" "ll" "xx" . should_equal "hexxo"
+
+    Test.specify "simple regex replace" <|
+        replace "hello" "(l+)" "xx" . should_equal "hexxo"
+
+    Test.specify "simple back reference replace" <|
+        replace "hello" "(l+)" "$1$1" . should_equal "hellllo"
+
+spec =
+    single_spec "Enso Text.replace" t-> r-> v->
+        t.replace matcher=Regex_Matcher.Value r v
+    single_spec "JavaScript String.replace" js_replace
+
+main = Test_Suite.run_main spec
+
+foreign js js_replace t r v = """
+    re = new RegExp(r, "g")
+    return t.replace(re, v)
