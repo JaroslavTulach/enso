@@ -12,11 +12,21 @@ import org.enso.interpreter.runtime.EnsoContext;
 import org.enso.interpreter.runtime.Module;
 import org.enso.interpreter.runtime.builtin.Builtins;
 
+import org.enso.compiler.core.IR$Function$Lambda;
+
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectStreamClass;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.logging.Level;
+import org.enso.compiler.core.ir.DiagnosticStorage;
+import org.enso.compiler.core.ir.MetadataStorage;
+import scala.Function1;
+import scala.Option;
+import scala.collection.immutable.List;
 
 public final class ModuleCache extends Cache<ModuleCache.CachedModule, ModuleCache.Metadata> {
 
@@ -146,7 +156,141 @@ public final class ModuleCache extends Cache<ModuleCache.CachedModule, ModuleCac
 
     @Override
     protected Object extractObjectToSerialize(CachedModule entry) {
-        return entry.moduleIR();
+      int[] counter = { 0 };
+      System.err.println("extractObjectToSerialize");
+      var o = entry.moduleIR().mapExpressions(new Function1<IR.Expression, IR.Expression>() {
+        @Override
+        public IR.Expression apply(IR.Expression v1) {
+          return switch (v1) {
+            case IR$Function$Lambda __ -> new ProxyIR(v1, counter[0]++);
+            default -> v1.mapExpressions(this);
+          };
+        }
+      });
+      System.err.println("counter = " + counter[0]);
+      return o;
+    }
+
+    static class NoIR extends BaseIR {
+      static final long serialVersionUID = ProxyIR.serialVersionUID;
+      static final ObjectStreamClass STREAM = ObjectStreamClass.lookup(NoIR.class);
+
+      private NoIR() {
+        super(-1);
+      }
+
+      private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
+        var getters = ois.readFields();
+        System.err.println("read NoIR: " + index + " real: " + getters.get("real", null));
+      }
+    }
+
+      static class BaseIR implements IR.Function {
+        static final long serialVersionUID = ProxyIR.serialVersionUID;
+        final int index;
+
+        private BaseIR(int v) {
+          this.index = v;
+        }
+
+        @Override
+        public List<DefinitionArgument> arguments() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Expression body() {
+          throw new UnsupportedOperationException("I am " + getClass() + " index: " + index + " and I need body!");
+        }
+
+        @Override
+        public boolean canBeTCO() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Function mapExpressions(Function1<Expression, Expression> fn) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Function setLocation(Option<IdentifiedLocation> location) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Function duplicate(boolean keepLocations, boolean keepMetadata, boolean keepDiagnostics, boolean keepIdentifiers) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public MetadataStorage passData() {
+          return new MetadataStorage(nil());
+        }
+
+        @Override
+        public Option<IdentifiedLocation> location() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<IR> children() {
+          return nil();
+        }
+
+        @Override
+        public UUID id() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void id_$eq(UUID x$1) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public DiagnosticStorage diagnostics() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String showCode(int indent) {
+          throw new UnsupportedOperationException();
+        }
+
+        @SuppressWarnings("unchecked")
+        private static <T> List<T> nil() {
+          Object o = scala.collection.immutable.Nil$.MODULE$;
+          return (scala.collection.immutable.List<T>) o;
+        }
+    }
+
+    static final class ProxyIR extends BaseIR {
+      static final long serialVersionUID = 332L;
+      static final ObjectStreamClass STREAM = ObjectStreamClass.lookup(ProxyIR.class);
+
+      private IR.Expression real;
+
+      ProxyIR(IR.Expression real, int index) {
+        super(index);
+        this.real = real;
+      }
+
+      private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
+        System.err.println("Before reading real for #" + index);
+        // var getters = ois.readFields();
+        // var r = (IR.Expression) getters.get("real", null);
+        var a = ois.available();
+        System.err.println("avail: " + a);
+        ois.skip(a);
+        System.err.println("After reading real for #" + index);
+        real = null;
+        // throw new ClassNotFoundException("Don't read me! : " + getters.get("real", null));
+      }
+
+      private Object readResolve() {
+        return this; // or real
+      }
     }
 
     // CachedModule is not a record **on purpose**. There appears to be a Frgaal bug leading to invalid compilation error.

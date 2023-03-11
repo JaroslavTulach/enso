@@ -13,6 +13,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.ObjectStreamClass;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -229,8 +230,28 @@ public abstract class Cache<T, M extends Cache.Metadata> {
 
       if (sourceDigestValid && blobDigestValid) {
         Object readObject;
-        try (ObjectInputStream stream =
-            new ObjectInputStream(new ByteArrayInputStream(blobBytes))) {
+        System.err.println("reading from " + dataPath);
+        try (ObjectInputStream stream = new ObjectInputStream(new ByteArrayInputStream(blobBytes)) {
+          {
+            enableResolveObject(true);
+          }
+          @Override
+          protected ObjectStreamClass readClassDescriptor() throws IOException, ClassNotFoundException {
+            var desc = super.readClassDescriptor();
+            System.err.println("read: " + desc.getName());
+            if (desc.getName().equals(ModuleCache.ProxyIR.STREAM.getName())) {
+              // System.err.println("replacing descriptor: " + desc.getName());
+              // return ModuleCache.NoIR.STREAM;
+            }
+            return desc;
+          }
+
+          @Override
+          protected Object resolveObject(Object obj) throws IOException {
+            System.err.println("loading " + obj.getClass().getName());
+            return super.resolveObject(obj);
+          }
+        }) {
           readObject = stream.readObject();
         } catch (IOException ioe) {
           logger.log(
