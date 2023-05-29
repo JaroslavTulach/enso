@@ -10,6 +10,7 @@ type Set a
 
     is_empty self = self.o.is_empty self.s
     contains self e = self.o.contains self.s e
+    length self = self.o.length self.s
     insert self e = Set.Value self.o <| self.o.insert self.s e
     union self (other:Set) = if self.o != other.o then Error.throw (Type_Error "Incompatible sets") else
         Set.Value self.o <| self.o.union self.s other.s
@@ -20,5 +21,6 @@ type Set a
 type Operator a
     is_empty (_ : Set) = Error.Throw (Illegal_State.Error "is_empty not implemented")
     contains (_ : Set) _ = Error.Throw (Illegal_State.Error "contains not implemented")
+    length (_ : Set) _ = Error.Throw (Illegal_State.Error "length not implemented")
     insert (_ : Set) _ = Error.Throw (Illegal_State.Error "insert not implemented")
     union (_ : Set) _ = Error.Throw (Illegal_State.Error "union not implemented")

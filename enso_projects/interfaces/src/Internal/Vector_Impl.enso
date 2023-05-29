@@ -8,7 +8,8 @@ type Vector_Impl a
 
     is_empty (elements : Vector) = elements.length == 0
     contains (elements : Vector) e = elements.contains e
-    insert (elements : Vector) e = elements + [ e ]
-    union (us : Vector) (them : Vector) = us + them
+    length (elements : Vector) = elements.length
+    insert (elements : Vector) e = if elements.contains e then elements else elements + [ e ]
+    union (us : Vector) (them : Vector) = (us + them).distinct
 
 

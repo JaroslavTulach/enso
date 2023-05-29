@@ -8,5 +8,10 @@ type Bit_Set_Impl a
 
     is_empty (elements : Integer) = elements == 0
     contains (elements : Integer) e = elements.bit_and (1.bit_shift e) != 0
+    length (elements : Integer) =
+        go at sum = if (at > elements) then sum else
+            found = (elements.bit_and at) . signum
+            @Tail_Call go at*2 sum+found
+        go 1 0
     insert (elements : Integer) e = elements.bit_or (1.bit_shift e)
     union (us : Integer) (them : Integer) = us.bit_or them
