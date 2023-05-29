@@ -6,9 +6,9 @@ import project.Set.Set
 type Vector_Impl a
     empty = Set.Value Vector_Impl []
 
-    is_empty (elements : Set) = elements.s.length == 0
-    contains (elements : Set) e = elements.s.contains e
-    insert (elements : Set) e = Set.Value Vector_Impl <| elements.s + [ e ]
-    union (us : Set) (them : Set) = Set.Value Vector_Impl <| us.s + them.s
+    is_empty (elements : Vector) = elements.length == 0
+    contains (elements : Vector) e = elements.contains e
+    insert (elements : Vector) e = elements + [ e ]
+    union (us : Vector) (them : Vector) = us + them
 
 

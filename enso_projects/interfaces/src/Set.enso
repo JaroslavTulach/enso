@@ -8,11 +8,11 @@ import project.Internal.Bit_Set_Impl.Bit_Set_Impl
 type Set a
     Value (o : Operator a) s:a
 
-    is_empty self = self.o.is_empty self
-    contains self e = self.o.contains self e
-    insert self e = self.o.insert self e
-    union self s = if self.o != s.o then Error.throw (Type_Error "Incompatible sets") else
-        self.o.union self s
+    is_empty self = self.o.is_empty self.s
+    contains self e = self.o.contains self.s e
+    insert self e = Set.Value self.o <| self.o.insert self.s e
+    union self (other:Set) = if self.o != other.o then Error.throw (Type_Error "Incompatible sets") else
+        Set.Value self.o <| self.o.union self.s other.s
 
     empty_vector_set = Vector_Impl.empty
     empty_bit_set = Bit_Set_Impl.empty
