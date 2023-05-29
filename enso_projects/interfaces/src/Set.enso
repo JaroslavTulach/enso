@@ -6,7 +6,7 @@ import project.Internal.Vector_Impl.Vector_Impl
 import project.Internal.Bit_Set_Impl.Bit_Set_Impl
 
 type Set a
-    Value (o : Operator a) s:a
+    Value o s:a
 
     is_empty self = self.o.is_empty self.s
     contains self e = self.o.contains self.s e
