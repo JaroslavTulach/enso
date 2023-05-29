@@ -1,0 +1,24 @@
+from Standard.Base import Error
+from Standard.Base.Errors.Common import Type_Error
+from  Standard.Base.Errors import Illegal_State
+
+import project.Internal.Vector_Impl.Vector_Impl
+import project.Internal.Bit_Set_Impl.Bit_Set_Impl
+
+type Set a
+    Value (o : Operator a) s:a
+
+    is_empty self = self.o.is_empty self
+    contains self e = self.o.contains self e
+    insert self e = self.o.insert self e
+    union self s = if self.o != s.o then Error.throw (Type_Error "Incompatible sets") else
+        self.o.union self s
+
+    empty_vector_set = Vector_Impl.empty
+    empty_bit_set = Bit_Set_Impl.empty
+
+type Operator a
+    is_empty (_ : Set) = Error.Throw (Illegal_State.Error "is_empty not implemented")
+    contains (_ : Set) _ = Error.Throw (Illegal_State.Error "contains not implemented")
+    insert (_ : Set) _ = Error.Throw (Illegal_State.Error "insert not implemented")
+    union (_ : Set) _ = Error.Throw (Illegal_State.Error "union not implemented")

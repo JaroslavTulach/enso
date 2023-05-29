@@ -1,0 +1,12 @@
+from Standard.Base import Integer
+
+import project.Set.Set
+
+
+type Bit_Set_Impl a
+    empty = Set.Value Bit_Set_Impl 0
+
+    is_empty (elements : Set) = elements.s == 0
+    contains (elements : Set) e = elements.s.bit_and (1.bit_shift e) != 0
+    insert (elements : Set) e = Set.Value Bit_Set_Impl <| elements.s.bit_or (1.bit_shift e)
+    union (us : Set) (them : Set) = Set.Value Bit_Set_Impl <| us.s.bit_or them.s

@@ -1,0 +1,14 @@
+from Standard.Base import Vector
+
+import project.Set.Set
+
+
+type Vector_Impl a
+    empty = Set.Value Vector_Impl []
+
+    is_empty (elements : Set) = elements.s.length == 0
+    contains (elements : Set) e = elements.s.contains e
+    insert (elements : Set) e = Set.Value Vector_Impl <| elements.s + [ e ]
+    union (us : Set) (them : Set) = Set.Value Vector_Impl <| us.s + them.s
+
+

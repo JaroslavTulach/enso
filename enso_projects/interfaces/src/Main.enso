@@ -1,0 +1,13 @@
+from Standard.Base import all
+
+import project.Set.Set
+
+main =
+    IO.println (test_set Set.empty_vector_set)
+    IO.println (test_set Set.empty_bit_set)
+
+test_set s0 =
+    s1 = s0 . insert 2 . insert 5 . insert 7
+    s2 = s0 . insert 3 . insert 11 . insert 13
+    s3 = s1.union s2
+    [s3.contains 5, s3.contains 6, s3.contains 7]
