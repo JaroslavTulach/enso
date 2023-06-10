@@ -6,7 +6,6 @@ use crate::prelude::*;
 use crate::executor::global::spawn_stream_handler;
 use crate::model::project::synchronized::ProjectNameInvalid;
 use crate::presenter;
-use crate::presenter::graph::ViewNodeId;
 
 use engine_protocol::language_server::ExecutionEnvironment;
 use engine_protocol::project_manager::ProjectMetadata;
@@ -89,28 +88,6 @@ impl Model {
             Err(err) => {
                 error!("Error while creating searcher integration: {err}");
             }
-        }
-    }
-
-    fn editing_committed_old_searcher(
-        &self,
-        node: ViewNodeId,
-        entry_id: Option<view::searcher::entry::Id>,
-    ) -> bool {
-        let searcher = self.searcher.take();
-        if let Some(searcher) = searcher {
-            let is_example = entry_id.map_or(false, |i| searcher.is_entry_an_example(i));
-            if let Some(created_node) = searcher.commit_editing(entry_id) {
-                self.graph.allow_expression_auto_updates(created_node, true);
-                if is_example {
-                    self.view.graph().enable_visualization(node);
-                }
-                false
-            } else {
-                true
-            }
-        } else {
-            false
         }
     }
 
@@ -231,6 +208,12 @@ impl Model {
     fn execution_finished(&self) {
         self.view.graph().frp.set_read_only(false);
         self.view.graph().frp.execution_finished.emit(());
+    }
+
+    fn execution_failed(&self) {
+        let message = crate::EXECUTION_FAILED_MESSAGE;
+        let message = view::status_bar::event::Label::from(message);
+        self.status_bar.add_event(message);
     }
 
     fn execution_context_interrupt(&self) {
@@ -354,9 +337,6 @@ impl Project {
                 }
             });
 
-            graph_view.remove_node <+ view.editing_committed_old_searcher.filter_map(f!([model]((node_view, entry)) {
-                model.editing_committed_old_searcher(*node_view, *entry).as_some(*node_view)
-            }));
             graph_view.remove_node <+ view.editing_committed.filter_map(f!([model]((node_view, entry)) {
                 model.editing_committed(*entry).as_some(*node_view)
             }));
@@ -444,6 +424,9 @@ impl Project {
                 }
                 Notification::ExecutionFinished => {
                     model.execution_finished();
+                }
+                Notification::ExecutionFailed => {
+                    model.execution_failed();
                 }
             };
             std::future::ready(())
