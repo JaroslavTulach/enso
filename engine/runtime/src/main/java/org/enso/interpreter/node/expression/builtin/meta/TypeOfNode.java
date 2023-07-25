@@ -18,7 +18,6 @@ import org.enso.interpreter.runtime.callable.UnresolvedSymbol;
 import org.enso.interpreter.runtime.data.Type;
 import org.enso.interpreter.runtime.error.DataflowError;
 import org.enso.interpreter.runtime.error.PanicException;
-import org.enso.interpreter.runtime.error.PanicSentinel;
 import org.enso.interpreter.runtime.error.WithWarnings;
 import org.enso.interpreter.runtime.library.dispatch.TypesLibrary;
 import org.enso.interpreter.runtime.number.EnsoBigInteger;
@@ -68,11 +67,6 @@ public abstract class TypeOfNode extends Node {
 
   @Specialization
   Object doPanicException(PanicException value) {
-    return EnsoContext.get(this).getBuiltins().panic();
-  }
-
-  @Specialization
-  Object doPanicSentinel(PanicSentinel value) {
     return EnsoContext.get(this).getBuiltins().panic();
   }
 

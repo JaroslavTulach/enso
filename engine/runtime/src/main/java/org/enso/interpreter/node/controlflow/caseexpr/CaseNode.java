@@ -1,5 +1,16 @@
 package org.enso.interpreter.node.controlflow.caseexpr;
 
+import org.enso.interpreter.node.ExpressionNode;
+import org.enso.interpreter.runtime.EnsoContext;
+import org.enso.interpreter.runtime.callable.function.Function;
+import org.enso.interpreter.runtime.error.DataflowError;
+import org.enso.interpreter.runtime.error.PanicException;
+import org.enso.interpreter.runtime.error.Warning;
+import org.enso.interpreter.runtime.error.WarningsLibrary;
+import org.enso.interpreter.runtime.error.WithWarnings;
+import org.enso.interpreter.runtime.state.State;
+import org.enso.interpreter.runtime.type.TypesGen;
+
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.Cached.Shared;
 import com.oracle.truffle.api.dsl.NodeChild;
@@ -10,12 +21,6 @@ import com.oracle.truffle.api.library.CachedLibrary;
 import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.nodes.NodeInfo;
 import com.oracle.truffle.api.profiles.CountingConditionProfile;
-import org.enso.interpreter.node.ExpressionNode;
-import org.enso.interpreter.runtime.EnsoContext;
-import org.enso.interpreter.runtime.callable.function.Function;
-import org.enso.interpreter.runtime.error.*;
-import org.enso.interpreter.runtime.state.State;
-import org.enso.interpreter.runtime.type.TypesGen;
 
 /**
  * A node representing a pattern match on an arbitrary runtime value.
@@ -65,19 +70,6 @@ public abstract class CaseNode extends ExpressionNode {
     return error;
   }
 
-  /**
-   * Rethrows a panic sentinel if it encounters one.
-   *
-   * @param frame the stack frame in which to execute
-   * @param sentinel the sentinel being matched against
-   * @return nothing
-   */
-  @Specialization
-  public Object doPanicSentinel(VirtualFrame frame, PanicSentinel sentinel) {
-    CompilerDirectives.transferToInterpreter();
-    throw sentinel;
-  }
-
   @Specialization(guards = {"object != null", "warnings.hasWarnings(object)"})
   Object doWarning(
       VirtualFrame frame,
@@ -103,7 +95,6 @@ public abstract class CaseNode extends ExpressionNode {
   @Specialization(
       guards = {
         "!isDataflowError(object)",
-        "!isPanicSentinel(object)",
         "!warnings.hasWarnings(object)"
       })
   @ExplodeLoop
@@ -131,10 +122,6 @@ public abstract class CaseNode extends ExpressionNode {
 
   boolean isDataflowError(Object error) {
     return TypesGen.isDataflowError(error);
-  }
-
-  boolean isPanicSentinel(Object sentinel) {
-    return TypesGen.isPanicSentinel(sentinel);
   }
 
   /* Note [Branch Selection Control Flow]

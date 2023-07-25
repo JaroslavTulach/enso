@@ -186,11 +186,6 @@ public class MethodProcessor extends BuiltinsMetadataProcessor<MethodProcessor.M
                   + " = CountingConditionProfile.create();");
         }
 
-        if (arg.isPositional() && !arg.isSelf()) {
-          String branchName = mkArgumentInternalVarName(arg) + PANIC_SENTINEL_PROFILE;
-          out.println("    private final BranchProfile " + branchName + " = BranchProfile.create();");
-        }
-
         if (arg.shouldCheckWarnings()) {
           String warningName = mkArgumentInternalVarName(arg) + WARNING_PROFILE;
           out.println(
@@ -384,21 +379,6 @@ public class MethodProcessor extends BuiltinsMetadataProcessor<MethodProcessor.M
               + ";\n"
               + "    }");
     }
-    if (!arg.isSelf()) {
-      String branchProfile = mkArgumentInternalVarName(arg) + PANIC_SENTINEL_PROFILE;
-      out.println(
-          "    if (TypesGen.isPanicSentinel("
-              + argReference
-              + ")) {\n"
-              + "      internals."
-              + branchProfile
-              + ".enter();\n"
-              + "      throw TypesGen.asPanicSentinel("
-              + argReference
-              + ");\n"
-              + "    }");
-    }
-
     if (!arg.requiresCast()) {
       generateUncastedArgumentRead(out, arg, argsArray);
     } else if (arg.isSelf()) {
@@ -613,6 +593,5 @@ public class MethodProcessor extends BuiltinsMetadataProcessor<MethodProcessor.M
   }
 
   private static final String DATAFLOW_ERROR_PROFILE = "IsDataflowErrorConditionProfile";
-  private static final String PANIC_SENTINEL_PROFILE = "PanicSentinelBranchProfile";
   private static final String WARNING_PROFILE = "WarningProfile";
 }

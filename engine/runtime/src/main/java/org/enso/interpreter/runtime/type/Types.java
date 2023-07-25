@@ -19,7 +19,6 @@ import org.enso.polyglot.data.TypeGraph;
 /**
  * This class defines the interpreter-level type system for Enso.
  *
- * <p>While the language has support for rich types, the interpreter only cares about a small set of
  * primitive-level types in order to make execution fast. All higher-level types can be desugared in
  * terms of the more limited set of types expressed here.
  *
@@ -46,7 +45,6 @@ import org.enso.polyglot.data.TypeGraph;
   ModuleScope.class,
   Ref.class,
   PanicException.class,
-  PanicSentinel.class,
   Vector.class,
   EnsoHashMap.class,
   Warning.class,
@@ -157,8 +155,6 @@ public class Types {
     } else if (TypesGen.isRef(value)) {
       return ConstantsGen.REF;
     } else if (TypesGen.isPanicException(value)) {
-      return ConstantsGen.PANIC;
-    } else if (TypesGen.isPanicSentinel(value)) {
       return ConstantsGen.PANIC;
     } else if (TypesGen.isWarning(value)) {
       return ConstantsGen.WARNING;

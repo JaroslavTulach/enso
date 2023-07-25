@@ -22,7 +22,6 @@ import org.enso.interpreter.runtime.control.ThreadInterruptedException
 import org.enso.interpreter.runtime.error.{
   DataflowError,
   PanicException,
-  PanicSentinel,
   WarningsLibrary,
   WithWarnings
 }
@@ -338,12 +337,6 @@ object ProgramExecutionSupport {
       Types.isPanic(value.getType)
     ) {
       val payload = value.getValue match {
-        case sentinel: PanicSentinel =>
-          Api.ExpressionUpdate.Payload
-            .Panic(
-              ctx.executionService.getExceptionMessage(sentinel.getPanic),
-              ErrorResolver.getStackTrace(sentinel).flatMap(_.expressionId)
-            )
         case error: DataflowError =>
           Api.ExpressionUpdate.Payload.DataflowError(
             ErrorResolver.getStackTrace(error).flatMap(_.expressionId)

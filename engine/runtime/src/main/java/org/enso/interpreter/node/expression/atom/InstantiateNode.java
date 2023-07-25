@@ -30,18 +30,15 @@ public abstract class InstantiateNode extends ExpressionNode {
   private @Child WarningsLibrary warnings = WarningsLibrary.getFactory().createDispatched(3);
   private @CompilationFinal(dimensions = 1) CountingConditionProfile[] profiles;
   private @CompilationFinal(dimensions = 1) CountingConditionProfile[] warningProfiles;
-  private @CompilationFinal(dimensions = 1) BranchProfile[] sentinelProfiles;
   private final CountingConditionProfile anyWarningsProfile = CountingConditionProfile.create();
 
   InstantiateNode(AtomConstructor constructor, ExpressionNode[] arguments) {
     this.constructor = constructor;
     this.arguments = arguments;
     this.profiles = new CountingConditionProfile[arguments.length];
-    this.sentinelProfiles = new BranchProfile[arguments.length];
     this.warningProfiles = new CountingConditionProfile[arguments.length];
     for (int i = 0; i < arguments.length; ++i) {
       this.profiles[i] = CountingConditionProfile.create();
-      this.sentinelProfiles[i] = BranchProfile.create();
       this.warningProfiles[i] = CountingConditionProfile.create();
     }
   }
@@ -75,7 +72,6 @@ public abstract class InstantiateNode extends ExpressionNode {
     for (int i = 0; i < arguments.length; i++) {
       CountingConditionProfile profile = profiles[i];
       CountingConditionProfile warningProfile = warningProfiles[i];
-      BranchProfile sentinelProfile = sentinelProfiles[i];
       Object argument = arguments[i].executeGeneric(frame);
       if (profile.profile(TypesGen.isDataflowError(argument))) {
         return argument;
@@ -87,9 +83,6 @@ public abstract class InstantiateNode extends ExpressionNode {
         } catch (UnsupportedMessageException e) {
           throw new IllegalStateException(e);
         }
-      } else if (TypesGen.isPanicSentinel(argument)) {
-        sentinelProfile.enter();
-        throw TypesGen.asPanicSentinel(argument);
       } else {
         argumentValues[i] = argument;
       }

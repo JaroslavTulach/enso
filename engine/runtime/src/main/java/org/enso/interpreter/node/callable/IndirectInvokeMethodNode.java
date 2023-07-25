@@ -1,9 +1,27 @@
 package org.enso.interpreter.node.callable;
 
-import com.oracle.truffle.api.dsl.*;
+import org.enso.interpreter.node.BaseNode;
+import org.enso.interpreter.node.callable.dispatch.IndirectInvokeFunctionNode;
+import org.enso.interpreter.node.callable.resolver.HostMethodCallNode;
+import org.enso.interpreter.node.callable.resolver.MethodResolverNode;
+import org.enso.interpreter.node.callable.thunk.ThunkExecutorNode;
+import org.enso.interpreter.runtime.EnsoContext;
+import org.enso.interpreter.runtime.callable.UnresolvedSymbol;
+import org.enso.interpreter.runtime.callable.argument.CallArgumentInfo;
+import org.enso.interpreter.runtime.callable.function.Function;
+import org.enso.interpreter.runtime.data.ArrayRope;
+import org.enso.interpreter.runtime.data.text.Text;
+import org.enso.interpreter.runtime.error.DataflowError;
+import org.enso.interpreter.runtime.error.Warning;
+import org.enso.interpreter.runtime.error.WithWarnings;
+import org.enso.interpreter.runtime.library.dispatch.TypesLibrary;
+import org.enso.interpreter.runtime.state.State;
+
+import com.oracle.truffle.api.dsl.Bind;
 import com.oracle.truffle.api.dsl.Cached;
 import com.oracle.truffle.api.dsl.Cached.Shared;
 import com.oracle.truffle.api.dsl.GenerateUncached;
+import com.oracle.truffle.api.dsl.ImportStatic;
 import com.oracle.truffle.api.dsl.ReportPolymorphism;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.MaterializedFrame;
@@ -13,19 +31,6 @@ import com.oracle.truffle.api.library.CachedLibrary;
 import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.profiles.ConditionProfile;
-import org.enso.interpreter.node.BaseNode;
-import org.enso.interpreter.node.callable.dispatch.IndirectInvokeFunctionNode;
-import org.enso.interpreter.node.callable.resolver.*;
-import org.enso.interpreter.node.callable.thunk.ThunkExecutorNode;
-import org.enso.interpreter.runtime.EnsoContext;
-import org.enso.interpreter.runtime.callable.UnresolvedSymbol;
-import org.enso.interpreter.runtime.callable.argument.CallArgumentInfo;
-import org.enso.interpreter.runtime.callable.function.Function;
-import org.enso.interpreter.runtime.data.ArrayRope;
-import org.enso.interpreter.runtime.data.text.Text;
-import org.enso.interpreter.runtime.error.*;
-import org.enso.interpreter.runtime.library.dispatch.TypesLibrary;
-import org.enso.interpreter.runtime.state.State;
 
 @GenerateUncached
 @ReportPolymorphism
@@ -136,21 +141,6 @@ public abstract class IndirectInvokeMethodNode extends Node {
             isTail,
             thisArgumentPosition);
     return WithWarnings.appendTo(EnsoContext.get(this), result, warnings);
-  }
-
-  @Specialization
-  Object doPanicSentinel(
-      MaterializedFrame frame,
-      State state,
-      UnresolvedSymbol symbol,
-      PanicSentinel self,
-      Object[] arguments,
-      CallArgumentInfo[] schema,
-      InvokeCallableNode.DefaultsExecutionMode defaultsExecutionMode,
-      InvokeCallableNode.ArgumentsExecutionMode argumentsExecutionMode,
-      BaseNode.TailStatus isTail,
-      int thisArgumentPosition) {
-    throw self;
   }
 
   @Specialization(
