@@ -787,7 +787,7 @@ object BindingsMap {
       tp.members.map(m => (m.name, List(ResolvedConstructor(this, m)))).toMap
 
     def unsafeToRuntimeType(): org.enso.interpreter.runtime.data.Type =
-      module.unsafeAsModule().getScope.getTypes.get(tp.name)
+      module.unsafeAsModule().getScope.getType(tp.name)
   }
 
   /** A result of successful name resolution.

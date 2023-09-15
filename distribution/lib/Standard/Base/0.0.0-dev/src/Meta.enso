@@ -195,6 +195,9 @@ type Unresolved_Symbol
     scope : Any
     scope self = get_unresolved_symbol_scope self.value
 
+    resolve : Meta
+    resolve self = Meta.meta (resolve_unresolved_symbol self.value)
+
 type Error
     ## PRIVATE
        ADVANCED

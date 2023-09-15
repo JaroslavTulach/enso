@@ -1,6 +1,5 @@
 package org.enso.interpreter.runtime.builtin;
 
-import com.oracle.truffle.api.CompilerDirectives;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
 import org.enso.compiler.Passes;
 import org.enso.compiler.context.CompilerContext;
 import org.enso.compiler.context.FreshNameSupply;
@@ -47,10 +47,15 @@ import org.enso.interpreter.node.expression.builtin.runtime.Context;
 import org.enso.interpreter.node.expression.builtin.text.Text;
 import org.enso.interpreter.runtime.EnsoContext;
 import org.enso.interpreter.runtime.Module;
+import org.enso.interpreter.runtime.builtin.Error;
+import org.enso.interpreter.runtime.builtin.Number;
+import org.enso.interpreter.runtime.builtin.System;
 import org.enso.interpreter.runtime.callable.function.Function;
 import org.enso.interpreter.runtime.data.Type;
 import org.enso.interpreter.runtime.scope.ModuleScope;
 import org.enso.pkg.QualifiedName;
+
+import com.oracle.truffle.api.CompilerDirectives;
 
 /** Container class for static predefined atoms, methods, and their containing scope. */
 public final class Builtins {
@@ -305,7 +310,7 @@ public final class Builtins {
           }
           String builtinMethodOwner = builtinName[0];
           String builtinMethodName = builtinName[1];
-          Optional.ofNullable(scope.getTypes().get(builtinMethodOwner))
+          Optional.ofNullable(scope.getType(builtinMethodOwner))
               .ifPresentOrElse(
                   constr -> {
                     Map<String, LoadedBuiltinMethod> atomNodes = methodNodes.get(builtinMethodOwner);

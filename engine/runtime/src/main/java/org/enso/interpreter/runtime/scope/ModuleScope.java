@@ -1,22 +1,23 @@
 package org.enso.interpreter.runtime.scope;
 
-import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+
 import org.enso.interpreter.runtime.Module;
 import org.enso.interpreter.runtime.callable.function.Function;
 import org.enso.interpreter.runtime.data.EnsoObject;
 import org.enso.interpreter.runtime.data.Type;
 import org.enso.interpreter.runtime.error.RedefinedConversionException;
 import org.enso.interpreter.runtime.error.RedefinedMethodException;
+
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 
 /** A representation of Enso's per-file top-level scope. */
 public final class ModuleScope implements EnsoObject {
@@ -87,6 +88,11 @@ public final class ModuleScope implements EnsoObject {
   /** @return the set of modules imported by this module. */
   public Set<ModuleScope> getImports() {
     return imports;
+  }
+
+  /** @return the set of modules imported by this module. */
+  public Set<ModuleScope> getExports() {
+    return exports;
   }
 
   /**
@@ -261,15 +267,15 @@ public final class ModuleScope implements EnsoObject {
     exports.add(scope);
   }
 
-  public Map<String, Type> getTypes() {
-    return types;
-  }
-
-  public Optional<Type> getType(String name) {
+  /** Finds type by name in this scope.
+   * @param name fully qualified name to look for
+   * @return {@code null} or found {@link Type}
+   */
+  public Type getType(String name) {
     if (associatedType.getName().equals(name)) {
-      return Optional.of(associatedType);
+      // return associatedType;
     }
-    return Optional.ofNullable(types.get(name));
+    return types.get(name);
   }
 
   /** @return a method for the given type */

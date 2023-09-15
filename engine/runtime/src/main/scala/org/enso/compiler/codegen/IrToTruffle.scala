@@ -196,7 +196,7 @@ class IrToTruffle(
         module
       }
       .foreach { exp =>
-        moduleScope.addExport(exp.unsafeAsModule().getScope)
+        moduleScope.addExport(exp.unsafeAsModule().getScope) // addExport
       }
     val importDefs = module.imports
     val methodDefs = module.bindings.collect {
@@ -211,7 +211,7 @@ class IrToTruffle(
           val scope: ModuleScope = imp.importDef.onlyNames
             .map(only => mod.getScope(only.map(_.name).asJava))
             .getOrElse(mod.getScope())
-          moduleScope.addImport(scope)
+          moduleScope.addImport(scope) // addImport
       }
     }
 
@@ -237,7 +237,7 @@ class IrToTruffle(
     typeDefs.foreach { tpDef =>
       // Register the atoms and their constructors in scope
       val atomDefs    = tpDef.members
-      val runtimeType = moduleScope.getTypes.get(tpDef.name.name)
+      val runtimeType = moduleScope.getType(tpDef.name.name)
       val atomConstructors =
         atomDefs.map(cons => runtimeType.getConstructors.get(cons.name.name))
       atomConstructors
@@ -379,7 +379,7 @@ class IrToTruffle(
               .map { res =>
                 res.target match {
                   case BindingsMap.ResolvedType(module, tp) =>
-                    module.unsafeAsModule().getScope.getTypes.get(tp.name)
+                    module.unsafeAsModule().getScope.getType(tp.name)
                   case BindingsMap.ResolvedModule(module) =>
                     module.unsafeAsModule().getScope.getAssociatedType
                   case BindingsMap.ResolvedConstructor(_, _) =>
@@ -709,7 +709,7 @@ class IrToTruffle(
             ) =>
           ReadArgumentCheckNode.build(
             name,
-            mod.unsafeAsModule().getScope.getTypes.get(tpe.name)
+            mod.unsafeAsModule().getScope.getType(tpe.name)
           )
         case _ => null
       }
@@ -764,8 +764,7 @@ class IrToTruffle(
           definitionModule
             .unsafeAsModule()
             .getScope
-            .getTypes
-            .get(tp.name)
+            .getType(tp.name)
         case BindingsMap.ResolvedModule(module) =>
           module.unsafeAsModule().getScope.getAssociatedType
         case BindingsMap.ResolvedConstructor(_, _) =>
@@ -869,7 +868,7 @@ class IrToTruffle(
           resolution match {
             case BindingsMap.ResolvedType(module, tp) =>
               val runtimeTp =
-                module.unsafeAsModule().getScope.getTypes.get(tp.name)
+                module.unsafeAsModule().getScope.getType(tp.name)
               val fun = mkTypeGetter(runtimeTp)
               moduleScope.registerMethod(
                 moduleScope.getAssociatedType,
@@ -1247,7 +1246,7 @@ class IrToTruffle(
                       BindingsMap.Resolution(BindingsMap.ResolvedType(mod, tp))
                     ) =>
                   val tpe =
-                    mod.unsafeAsModule().getScope.getTypes.get(tp.name)
+                    mod.unsafeAsModule().getScope.getType(tp.name)
                   val polyglot = context.getBuiltins.polyglot
                   val branchNode = if (tpe == polyglot) {
                     PolyglotBranchNode.build(
@@ -1393,7 +1392,7 @@ class IrToTruffle(
                 ) =>
               // Using .getTypes because .getType may return an associated type
               Option(
-                mod.unsafeAsModule().getScope.getTypes.get(tpe.name)
+                mod.unsafeAsModule().getScope.getType(tpe.name)
               ) match {
                 case Some(tpe) =>
                   val argOfType = List(
@@ -1654,7 +1653,7 @@ class IrToTruffle(
       resolution match {
         case tp: BindingsMap.ResolvedType =>
           ConstantObjectNode.build(
-            tp.module.unsafeAsModule().getScope.getTypes.get(tp.tp.name)
+            tp.module.unsafeAsModule().getScope.getType(tp.tp.name)
           )
         case BindingsMap.ResolvedConstructor(definitionType, cons) =>
           val c = definitionType

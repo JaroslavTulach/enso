@@ -545,7 +545,7 @@ public final class Module implements EnsoObject {
     private static Type getType(ModuleScope scope, Object[] args)
         throws ArityException, UnsupportedTypeException {
       String name = Types.extractArguments(args, String.class);
-      return scope.getTypes().get(name);
+      return scope.getType(name);
     }
 
     private static Module reparse(Module module, Object[] args, EnsoContext context)

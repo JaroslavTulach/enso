@@ -1,0 +1,10 @@
+import Standard.Base.Meta
+#from Standard.Base.Data import Vector
+from Standard.Base.Data.Numbers import all
+
+main =
+    symbol = Meta.meta .anything
+    typ_b = Meta.meta <| symbol.rename "Standard.Base.Data.Boolean.Boolean"
+    typ_i = Meta.meta <| symbol.rename "Standard.Base.Data.Numbers.Integer"
+    [typ_b.resolve, typ_i.resolve]
+
