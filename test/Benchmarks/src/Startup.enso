@@ -9,10 +9,10 @@ type Data
     Value ~enso_bin:File ~empty_world:File ~hello_world:File
 
     bench_empty self =
-        res = Process.run self.enso_bin.path [ "--run", self.empty_world.to_text ]
+        Process.run self.enso_bin.path [ "--run", self.empty_world.to_text ]
 
     bench_hello self =
-        res = Process.run self.enso_bin.path [ "--run", self.hello_world.to_text ]
+        Process.run self.enso_bin.path [ "--run", self.hello_world.to_text ]
 
 
 collect_benches = Bench.build builder->
