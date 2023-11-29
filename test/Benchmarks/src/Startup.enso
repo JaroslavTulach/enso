@@ -19,9 +19,9 @@ startup exe:Text args:(Vector Text) =
     case result.exit_code of
         Exit_Code.Failure code ->
             IO.println "Exit code: "+code
-            IO.println result.stdout
-            IO.println result.stderr
         Exit_Code.Success -> Nothing
+    IO.println result.stdout
+    IO.println result.stderr
 
 collect_benches = Bench.build builder->
     options = Bench.options . set_warmup (Bench.phase_conf 2 5) . set_measure (Bench.phase_conf 3 5)
@@ -51,10 +51,25 @@ hello_file =
     f
 
 enso_bin =
-    p = Java_System.getProperty "jdk.module.path"
-    s = p.split Java_File.separator
-    paths = s.take (Index_Sub_Range.While _!="..")
-    j = paths . join Java_File.separator
-    File.new j / if Platform.os == Platform.OS.Windows then "enso.bat" else "enso"
+    find_prefix dir prefix =
+        vec = dir.list name_filter=prefix+"*"
+        if vec.length == 1 then vec.at 0 else
+            msg = "Cannot find " + prefix + "* in" + dir.to_text + "\n"
+            err = dir.list.fold msg t-> f->
+                t + f.to_text + "\n"
+            Panic.throw err
+
+    project_root = File.new enso_project.root.to_text
+    repository_root = project_root . parent . parent
+    built_distribution = find_prefix repository_root "built-distribution"
+    enso_engine = find_prefix built_distribution "enso-engine-"
+    enso = find_prefix enso_engine "enso-"
+    bin = find_prefix enso "bin"
+
+    exe = File.new bin / if Platform.os == Platform.OS.Windows then "enso.bat" else "enso"
+
+    if exe.is_regular_file.not then Panic.throw "Cannot find "+exe.to_text
+
+    exe
 
 main = collect_benches . run_main
