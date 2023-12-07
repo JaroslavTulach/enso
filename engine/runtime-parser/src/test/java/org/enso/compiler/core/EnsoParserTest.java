@@ -1271,6 +1271,19 @@ public class EnsoParserTest {
   }
 
   @Test
+  public void testIfInParenthesisAndBlockSyntax() throws Exception {
+    equivalenceTest("""
+    main =
+        pairs = (if t then a else b) . to_vector . sort
+    """, """
+    main =
+        pairs = (if t then a else b)
+            . to_vector
+            . sort
+    """);
+  }
+
+  @Test
   public void testIfWithVariableAndBlockSyntax() throws Exception {
     equivalenceTest("""
     main =
