@@ -1258,6 +1258,19 @@ public class EnsoParserTest {
   }
 
   @Test
+  public void testIfAndBlockSyntax() throws Exception {
+    equivalenceTest("""
+    main =
+        pairs = (if t then a else b) . to_vector . sort
+    """, """
+    main =
+        pairs = if t then a else b
+            . to_vector
+            . sort
+    """);
+  }
+
+  @Test
   public void testBlockSyntaxOperators() throws Exception {
     equivalenceTest("""
     value = nums * each random + constant
