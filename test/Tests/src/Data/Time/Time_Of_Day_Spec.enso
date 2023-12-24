@@ -11,8 +11,6 @@ polyglot java import java.time.LocalTime
 polyglot java import java.time.format.DateTimeFormatter
 
 spec =
-    specWith "Time_Of_Day" enso_time Time_Of_Day.parse
-    specWith "JavaLocalTime" java_time java_parse
     if Polyglot.is_language_installed "python" then
         specWith "PythonLocalTime" python_time python_parse nanoseconds_loss_in_precision=True
 
