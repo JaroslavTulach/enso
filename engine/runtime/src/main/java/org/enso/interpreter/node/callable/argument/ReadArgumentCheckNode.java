@@ -33,6 +33,7 @@ import org.enso.interpreter.node.expression.literal.LiteralNode;
 import org.enso.interpreter.runtime.EnsoContext;
 import org.enso.interpreter.runtime.callable.Annotation;
 import org.enso.interpreter.runtime.callable.UnresolvedConversion;
+import org.enso.interpreter.runtime.callable.UnresolvedSymbol;
 import org.enso.interpreter.runtime.callable.argument.ArgumentDefinition;
 import org.enso.interpreter.runtime.callable.argument.ArgumentDefinition.ExecutionMode;
 import org.enso.interpreter.runtime.callable.argument.CallArgument;
@@ -238,7 +239,7 @@ public abstract class ReadArgumentCheckNode extends Node {
   }
 
   abstract static class TypeCheckNode extends ReadArgumentCheckNode {
-    private final Type expectedType;
+    final Type expectedType;
     @Child IsValueOfTypeNode checkType;
     @CompilerDirectives.CompilationFinal private String expectedTypeMessage;
     @CompilerDirectives.CompilationFinal private LazyCheckRootNode lazyCheck;
@@ -252,6 +253,19 @@ public abstract class ReadArgumentCheckNode extends Node {
     @Specialization
     Object doPanicSentinel(VirtualFrame frame, PanicSentinel panicSentinel) {
       throw panicSentinel;
+    }
+
+    @Specialization(guards = "found != null")
+    Object doUnresolvedSymbol(
+        VirtualFrame frame,
+        UnresolvedSymbol symbol,
+        @Cached(neverDefault = false, value = "symbol.resolveFor(this, expectedType)")
+            Pair<Function, Type> found) {
+      if (found.getLeft().isFullyApplied()) {
+        return found.getLeft();
+      } else {
+        throw panicAtTheEnd(found.getLeft());
+      }
     }
 
     @Specialization(rewriteOn = InvalidAssumptionException.class)

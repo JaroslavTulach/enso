@@ -243,6 +243,11 @@ public final class ModuleScope implements EnsoObject {
       return definedHere.get();
     }
 
+    var constructedHere = type.getConstructors().get(name);
+    if (constructedHere != null) {
+      return constructedHere.getConstructorFunction();
+    }
+
     return imports.stream()
         .map(scope -> scope.getExportedMethod(type, name))
         .filter(Objects::nonNull)
