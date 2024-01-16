@@ -119,37 +119,40 @@ type Sorting_Data
 
 
 type Aggregation_Data
-    Value connection t9
+    Value ~data
 
-setup_aggregation_data create_connection_fn =
-    IO.println <| "  Common_Spec_New.setup_aggregation_data"
-    connection = create_connection_fn Nothing
-    builders = [Vector.new_builder,Vector.new_builder,Vector.new_builder]
-    insert v =
-        builders.zip v .append
-    insert ["foo",  0.4,     50]
-    insert ["foo",  0.2,     10]
-    insert ["foo",  0.4,     30]
-    insert ["bar",  3.5,     20]
-    insert ["foo",  Nothing, 20]
-    insert ["baz",  6.7,     40]
-    insert ["foo",  Nothing, 10]
-    insert ["bar",  97,      60]
-    insert ["quux", Nothing, 70]
-    insert ["zzzz", Nothing, Nothing]
-    insert ["zzzz", 1, 1]
-    insert ["zzzz", 0, 0]
-    insert ["zzzz", 0, 1]
-    insert ["zzzz", 1, 0]
-    insert ["zzzz", 0, 0]
-    insert ["zzzz", Nothing, Nothing]
-    t9 = upload connection "T9" <|
-        Table.new [["name", builders.at 0 . to_vector], ["price", builders.at 1 . to_vector], ["quantity", builders.at 2 . to_vector]]
-    Aggregation_Data.Value connection t9
+    connection self = self.data.first
+    t9 self = self.data.second
 
-teardown_aggregation_data data =
-    IO.println <| "  Common_Spec_New.teardown_aggregation_data"
-    drop_table data.connection data.t9.name
+    setup create_connection_fn = Aggregation_Data.Value <|
+        IO.println <| "  Common_Spec_New.Aggregation_Data.setup"
+        connection = create_connection_fn Nothing
+        builders = [Vector.new_builder,Vector.new_builder,Vector.new_builder]
+        insert v =
+            builders.zip v .append
+        insert ["foo",  0.4,     50]
+        insert ["foo",  0.2,     10]
+        insert ["foo",  0.4,     30]
+        insert ["bar",  3.5,     20]
+        insert ["foo",  Nothing, 20]
+        insert ["baz",  6.7,     40]
+        insert ["foo",  Nothing, 10]
+        insert ["bar",  97,      60]
+        insert ["quux", Nothing, 70]
+        insert ["zzzz", Nothing, Nothing]
+        insert ["zzzz", 1, 1]
+        insert ["zzzz", 0, 0]
+        insert ["zzzz", 0, 1]
+        insert ["zzzz", 1, 0]
+        insert ["zzzz", 0, 0]
+        insert ["zzzz", Nothing, Nothing]
+        t9 = upload connection "T9" <|
+            Table.new [["name", builders.at 0 . to_vector], ["price", builders.at 1 . to_vector], ["quantity", builders.at 2 . to_vector]]
+        [connection, t9]
+
+    teardown self =
+        IO.println <| "  Common_Spec_New.Aggregation_Data.teardown"
+        drop_table self.connection self.t9.name
 
 
 
@@ -390,7 +393,9 @@ add_common_specs (suite_builder : Suite_Builder) (prefix : Text) (create_connect
             r_2.to_vector.should_equal [7.3, 3.0, 3.0, 2.2, Nothing, Nothing]
 
 
-    suite_builder.group prefix+"Aggregation" setup=(setup_aggregation_data create_connection_fn) teardown=teardown_aggregation_data group_builder->
+    aggregation_data = Aggregation_Data.setup create_connection_fn
+    suite_builder.group prefix+"Aggregation" teardown=(_->aggregation_data.teardown) group_builder->
+        args = aggregation_data
 
         ## A helper which makes sure that the groups in a materialized
            (InMemory) table are ordered according to a specified column or list
@@ -398,7 +403,7 @@ add_common_specs (suite_builder : Suite_Builder) (prefix : Text) (create_connect
         determinize_by order_column table =
             table.order_by ([Sort_Column.Name order_column])
 
-        group_builder.specify_with_args "should allow counting group sizes and elements" args->
+        group_builder.specify "should allow counting group sizes and elements" <|
             ## Names set to lower case to avoid issue with Redshift where columns are
                returned in lower case.
             aggregates = [Count "count", Count_Not_Nothing "price" "count not nothing price", Count_Nothing "price" "count nothing price"]
@@ -414,7 +419,7 @@ add_common_specs (suite_builder : Suite_Builder) (prefix : Text) (create_connect
             t2.at  "count not nothing price" . to_vector . should_equal [11]
             t2.at  "count nothing price" . to_vector . should_equal [5]
 
-        group_builder.specify_with_args "should allow simple arithmetic aggregations" args->
+        group_builder.specify "should allow simple arithmetic aggregations" <|
             ## Names set to lower case to avoid issue with Redshift where columns are
                returned in lower case.
             aggregates = [Sum "price" "sum price", Sum "quantity" "sum quantity", Average "price" "avg price"]
