@@ -115,9 +115,11 @@ suite =
         in_memory_prefix = "[SQLite In-Memory] "
         sqlite_spec suite_builder (_-> create_inmem_connection) in_memory_prefix
 
-        suite_builder.group "SQLite_Format should allow connecting to SQLite files" setup=Data.setup teardown=_.teardown group_builder->
+        args = Data.setup
 
-            group_builder.specify_with_args "should recognise a SQLite database file" args->
+        suite_builder.group "SQLite_Format should allow connecting to SQLite files" setup=Nothing teardown=(_->args.teardown) group_builder->
+
+            group_builder.specify "should recognise a SQLite database file" <|
                 Auto_Detect.get_reading_format args.file . should_be_a SQLite_Format
 
             group_builder.specify 'should not duplicate warnings' <|
