@@ -14,21 +14,24 @@ import project.Util
 import project.Database.Helpers.Name_Generator
 
 type Data
-    Value db_table_without_key db_table_with_key
+    Value ~data
 
-setup create_connection_func =
-    IO.println <| "  Default_Ordering_Spec_New.setup"
-    connection = create_connection_func Nothing
-    src_table = Table.new [["X", [1, 2, 3]], ["Y", [30, 20, 10]]]
-    db_table_without_key = src_table.select_into_database_table connection (Name_Generator.random_name "default-ordering-1") temporary=True primary_key=Nothing
-    db_table_with_key = src_table.select_into_database_table connection (Name_Generator.random_name "default-ordering-1") temporary=True primary_key=["X"]
-    Data.Value db_table_without_key db_table_with_key
+    db_table_without_key self = self.data.first
+    db_table_with_key self = self.data.second
+
+    setup create_connection_func = Data.Value <|
+        IO.println <| "  Default_Ordering_Spec_New.setup"
+        connection = create_connection_func Nothing
+        src_table = Table.new [["X", [1, 2, 3]], ["Y", [30, 20, 10]]]
+        db_table_without_key = src_table.select_into_database_table connection (Name_Generator.random_name "default-ordering-1") temporary=True primary_key=Nothing
+        db_table_with_key = src_table.select_into_database_table connection (Name_Generator.random_name "default-ordering-1") temporary=True primary_key=["X"]
+        [db_table_without_key, db_table_with_key]
 
 
 add_default_ordering_specs suite_builder prefix create_connection_func =
     group_name = prefix + "Table.default_ordering"
 
-    suite_builder.group group_name setup=(setup create_connection_func) group_builder->
+    suite_builder.group group_name setup=(Data.setup create_connection_func) group_builder->
         group_builder.specify_with_args "will return Nothing if no primary key is defined" args->
             args.db_table_without_key.default_ordering . should_equal Nothing
 
