@@ -90,20 +90,21 @@ create_inmem_connection =
 
 
 type Data
-    Value file
+    Value ~file
 
-setup =
-    IO.println <| "  SQLite_Spec_New.setup"
-    con = create_file_connection backing_file
-    con.close
-    assert backing_file.exists
-    Data.Value backing_file
+    setup = Data.Value <|
+        IO.println <| "  SQLite_Spec_New.setup"
+        tmp_file = backing_file
+        con = create_file_connection tmp_file
+        con.close
+        assert tmp_file.exists
+        tmp_file
 
 
-teardown args =
-    IO.println <| "  SQLite_Spec_New.teardown"
-    assert args.file.exists
-    args.file.delete
+    teardown self =
+        IO.println <| "  SQLite_Spec_New.teardown"
+        assert self.file.exists
+        self.file.delete
 
 
 suite =
@@ -114,7 +115,7 @@ suite =
         in_memory_prefix = "[SQLite In-Memory] "
         sqlite_spec suite_builder (_-> create_inmem_connection) in_memory_prefix
 
-        suite_builder.group "SQLite_Format should allow connecting to SQLite files" setup=setup teardown=teardown group_builder->
+        suite_builder.group "SQLite_Format should allow connecting to SQLite files" setup=Data.setup teardown=_.teardown group_builder->
 
             group_builder.specify_with_args "should recognise a SQLite database file" args->
                 Auto_Detect.get_reading_format args.file . should_be_a SQLite_Format
