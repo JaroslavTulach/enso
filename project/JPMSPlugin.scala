@@ -1,10 +1,5 @@
 import sbt.*
 import sbt.Keys.*
-import sbt.internal.inc.{CompileOutput, PlainVirtualFile}
-import sbt.util.CacheStore
-import sbtassembly.Assembly.{Dependency, JarEntry, Project}
-import sbtassembly.{CustomMergeStrategy, MergeStrategy}
-import xsbti.compile.IncToolOptionsUtil
 
 import java.io.File
 
@@ -50,10 +45,6 @@ object JPMSPlugin extends AutoPlugin {
         |""".stripMargin
     )
     val compileModuleInfo = taskKey[Unit]("Compile module-info.java")
-    val modulePathTestOptions_ = taskKey[Seq[String]](
-      "Assembles options for the JVM for running tests with all the required modules. " +
-      "Including truffle-compiler and org.enso.runtime modules and all their dependencies."
-    )
   }
 
   import autoImport.*
@@ -113,7 +104,6 @@ object JPMSPlugin extends AutoPlugin {
   ): Seq[String] = {
     val patchOpts: Seq[String] = patchModules.flatMap {
       case (moduleName, dirsToPatch) =>
-        ensureDirectoriesExist(dirsToPatch, log)
         val patchStr = dirsToPatch
           .map(_.getAbsolutePath)
           .mkString(File.pathSeparator)
@@ -122,8 +112,6 @@ object JPMSPlugin extends AutoPlugin {
           s"$moduleName=$patchStr"
         )
     }.toSeq
-
-    ensureDirectoriesExist(modulePath, log)
 
     val addExportsOpts: Seq[String] = addExports.flatMap {
       case (modPkgName, targetModules) =>
@@ -162,21 +150,5 @@ object JPMSPlugin extends AutoPlugin {
     }.toSeq
 
     modulePathOpts ++ addModsOpts ++ patchOpts ++ addExportsOpts ++ addReadsOpts
-  }
-
-  /** Java does not mandate that the directories specified in the module path or
-    * in --patch-module exist, but it is usefull to report at least warnings.
-    * @param dirs
-    * @param log
-    */
-  private def ensureDirectoriesExist(
-    dirs: Seq[File],
-    log: Logger
-  ): Unit = {
-    dirs.foreach { dir =>
-      if (!dir.exists()) {
-        log.warn(s"JPMSPlugin: Directory $dir does not exist.")
-      }
-    }
   }
 }

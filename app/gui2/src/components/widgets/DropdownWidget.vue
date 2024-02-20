@@ -51,7 +51,9 @@ const NEXT_SORT_DIRECTION: Record<SortDirection, SortDirection> = {
     <ul class="list" :style="{ background: color }" @wheel.stop>
       <template v-for="[value, index] in sortedValuesAndIndices" :key="value">
         <li v-if="value === selectedValue">
-          <div class="selected-item"><span v-text="value"></span></div>
+          <div class="selected-item button" @pointerdown="emit('click', index)">
+            <span v-text="value"></span>
+          </div>
         </li>
         <li v-else class="selectable-item button" @pointerdown="emit('click', index)">
           <span v-text="value"></span>
@@ -72,7 +74,7 @@ const NEXT_SORT_DIRECTION: Record<SortDirection, SortDirection> = {
 .Dropdown {
   position: absolute;
   top: 100%;
-  margin-top: 4px;
+  margin-top: 8px;
   height: 136px;
 }
 
