@@ -2162,6 +2162,7 @@ lazy val `engine-runner` = project
     libraryDependencies ++= Seq(
       "org.graalvm.sdk"     % "polyglot-tck"    % graalMavenPackagesVersion % Provided,
       "org.graalvm.truffle" % "truffle-api"     % graalMavenPackagesVersion % Provided,
+      "org.graalvm.truffle" % "truffle-enterprise"    % graalMavenPackagesVersion,
       "commons-cli"         % "commons-cli"     % commonsCliVersion,
       "com.monovore"       %% "decline"         % declineVersion,
       "org.jline"           % "jline"           % jlineVersion,
@@ -2183,6 +2184,9 @@ lazy val `engine-runner` = project
           additionalOptions = Seq(
             "-Dorg.apache.commons.logging.Log=org.apache.commons.logging.impl.NoOpLog",
             "-H:IncludeResources=.*Main.enso$",
+            "--features=com.oracle.svm.enterprise.truffle.PolyglotIsolateGuestFeature",
+            "-H:APIFunctionPrefix=truffle_isolate_",
+            "--shared",
             // "-g",
             //          "-H:+DashboardAll",
             //          "-H:DashboardDump=runner.bgv"
@@ -2191,7 +2195,9 @@ lazy val `engine-runner` = project
           mainClass = Some("org.enso.runner.Main"),
           additionalCp = Seq(
             "runtime.jar",
-            "runner.jar"
+            "runner.jar",
+            System.getProperty("user.home") + "/.cache/coursier/v1/https/repo1.maven.org/maven2/org/graalvm/sdk/nativebridge/23.1.2/nativebridge-23.1.2.jar",
+            System.getProperty("user.home") + "/.cache/coursier/v1/https/repo1.maven.org/maven2/org/graalvm/truffle/truffle-enterprise/23.1.2/truffle-enterprise-23.1.2.jar"
           ),
           initializeAtRuntime = Seq(
             "org.jline.nativ.JLineLibrary",

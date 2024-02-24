@@ -77,7 +77,7 @@ public final class EnsoContext {
 
   private final EnsoLanguage language;
   private final Env environment;
-  private final HostClassLoader hostClassLoader = new HostClassLoader();
+  private final HostClassLoader hostClassLoader = null;
   private final boolean assertionsEnabled;
   private final boolean isPrivateCheckDisabled;
   private @CompilationFinal Compiler compiler;
@@ -425,7 +425,8 @@ public final class EnsoContext {
     if (findGuestJava() == null) {
       try {
         var url = file.toUri().toURL();
-        hostClassLoader.add(url);
+        if (hostClassLoader != null) hostClassLoader.add(url);
+        environment.addToHostClassPath(file);
       } catch (MalformedURLException ex) {
         throw new IllegalStateException(ex);
       }
@@ -545,11 +546,21 @@ public final class EnsoContext {
     var fqn = pkgName + "." + curClassName;
     try {
       if (findGuestJava() == null) {
-        return environment.asHostSymbol(hostClassLoader.loadClass(fqn));
+        try {
+          if (hostClassLoader == null) {
+            throw new ClassNotFoundException("No host class loader");
+          }
+          var clazz = hostClassLoader.loadClass(fqn);
+          return environment.asHostSymbol(clazz);
+        } catch (ClassNotFoundException ex) {
+          var lkp = environment.lookupHostSymbol(fqn);
+          return lkp;
+        }
       } else {
         return InteropLibrary.getUncached().readMember(findGuestJava(), fqn);
       }
     } catch (Error e) {
+      e.printStackTrace();
       throw new ClassNotFoundException("Error loading " + fqn, e);
     }
   }
