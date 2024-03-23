@@ -8,7 +8,7 @@ import org.enso.interpreter.runtime.EnsoContext;
 import org.enso.interpreter.runtime.data.Type;
 
 @ExportLibrary(value = TypesLibrary.class, receiverType = Double.class)
-public class DefaultDoubleExports {
+class DefaultDoubleExports {
   @ExportMessage
   static boolean hasType(Double receiver) {
     return true;

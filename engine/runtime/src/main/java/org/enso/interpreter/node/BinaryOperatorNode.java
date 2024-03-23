@@ -13,7 +13,6 @@ import com.oracle.truffle.api.nodes.Node;
 import org.enso.interpreter.node.BinaryOperatorNodeFactory.DoThatConversionNodeGen;
 import org.enso.interpreter.node.callable.InteropConversionCallNode;
 import org.enso.interpreter.node.callable.dispatch.InvokeFunctionNode;
-import org.enso.interpreter.node.expression.builtin.meta.TypeOfNode;
 import org.enso.interpreter.runtime.EnsoContext;
 import org.enso.interpreter.runtime.callable.UnresolvedConversion;
 import org.enso.interpreter.runtime.callable.UnresolvedSymbol;
@@ -92,13 +91,12 @@ final class BinaryOperatorNode extends ExpressionNode {
     abstract Object executeThatConversion(
         VirtualFrame frame, String symbol, Object self, Object that);
 
-    static Type findType(TypeOfNode typeOfNode, Object obj) {
-      var rawType = typeOfNode.execute(obj);
-      return rawType instanceof Type type ? type : null;
+    static Type findType(TypesLibrary typeOfNode, Object obj) {
+      return typeOfNode.hasType(obj) ? typeOfNode.getType(obj) : null;
     }
 
     static Type findTypeUncached(Object obj) {
-      return findType(TypeOfNode.getUncached(), obj);
+      return findType(TypesLibrary.getUncached(), obj);
     }
 
     final Function findSymbol(String symbol, Type type) {
@@ -127,7 +125,7 @@ final class BinaryOperatorNode extends ExpressionNode {
         Object self,
         Object that,
         @Cached("symbol") String cachedSymbol,
-        @Shared("typeOf") @Cached TypeOfNode typeOfNode,
+        @Shared("typeOf") @CachedLibrary(limit = "10") TypesLibrary typeOfNode,
         @CachedLibrary(limit = "3") TypesLibrary types,
         @Cached(value = "findType(typeOfNode, self)", uncached = "findTypeUncached(self)")
             Type selfType,
@@ -147,7 +145,7 @@ final class BinaryOperatorNode extends ExpressionNode {
         String symbol,
         Object self,
         Object that,
-        @Shared("typeOf") @Cached TypeOfNode typeOfNode,
+        @Shared("typeOf") @CachedLibrary(limit = "10") TypesLibrary typeOfNode,
         @Shared("convert") @Cached InteropConversionCallNode convertNode,
         @Shared("invoke") @Cached(allowUncached = true, value = "buildWithArity(2)")
             InvokeFunctionNode invokeNode) {

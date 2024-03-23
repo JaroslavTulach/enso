@@ -14,67 +14,23 @@ import org.enso.interpreter.dsl.AcceptsError;
 import org.enso.interpreter.dsl.BuiltinMethod;
 import org.enso.interpreter.runtime.EnsoContext;
 import org.enso.interpreter.runtime.builtin.Builtins;
-import org.enso.interpreter.runtime.callable.UnresolvedSymbol;
 import org.enso.interpreter.runtime.data.EnsoObject;
 import org.enso.interpreter.runtime.data.Type;
 import org.enso.interpreter.runtime.error.DataflowError;
 import org.enso.interpreter.runtime.error.PanicException;
-import org.enso.interpreter.runtime.error.PanicSentinel;
-import org.enso.interpreter.runtime.error.WithWarnings;
 import org.enso.interpreter.runtime.library.dispatch.TypesLibrary;
-import org.enso.interpreter.runtime.number.EnsoBigInteger;
 
 @BuiltinMethod(
     type = "Meta",
     name = "type_of",
     description = "Returns the type of a value.",
     autoRegister = false)
-@GenerateUncached
 public abstract class TypeOfNode extends Node {
 
   public abstract Object execute(@AcceptsError Object value);
 
   public static TypeOfNode build() {
     return TypeOfNodeGen.create();
-  }
-
-  public static TypeOfNode getUncached() {
-    return TypeOfNodeGen.getUncached();
-  }
-
-  @Specialization
-  Object doUnresolvedSymbol(UnresolvedSymbol value) {
-    return EnsoContext.get(this).getBuiltins().function();
-  }
-
-  @Specialization
-  Object doDouble(double value) {
-    return EnsoContext.get(this).getBuiltins().number().getFloat();
-  }
-
-  @Specialization
-  Object doLong(long value) {
-    return EnsoContext.get(this).getBuiltins().number().getInteger();
-  }
-
-  @Specialization
-  Object doBigInteger(EnsoBigInteger value) {
-    return EnsoContext.get(this).getBuiltins().number().getInteger();
-  }
-
-  @Specialization
-  Object doPanicException(PanicException value) {
-    return EnsoContext.get(this).getBuiltins().panic();
-  }
-
-  @Specialization
-  Object doPanicSentinel(PanicSentinel value) {
-    return EnsoContext.get(this).getBuiltins().panic();
-  }
-
-  @Specialization
-  Object doWarning(WithWarnings value) {
-    return execute(value.getValue());
   }
 
   @Specialization(guards = {"!types.hasType(value)"})

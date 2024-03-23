@@ -8,6 +8,7 @@ import com.oracle.truffle.api.dsl.NeverDefault;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.interop.ArityException;
+import com.oracle.truffle.api.library.CachedLibrary;
 import com.oracle.truffle.api.nodes.Node;
 import org.enso.interpreter.dsl.AcceptsError;
 import org.enso.interpreter.dsl.BuiltinMethod;
@@ -22,6 +23,7 @@ import org.enso.interpreter.runtime.callable.argument.CallArgumentInfo;
 import org.enso.interpreter.runtime.callable.function.Function;
 import org.enso.interpreter.runtime.data.Type;
 import org.enso.interpreter.runtime.error.PanicException;
+import org.enso.interpreter.runtime.library.dispatch.TypesLibrary;
 import org.enso.interpreter.runtime.scope.ModuleScope;
 import org.enso.interpreter.runtime.state.State;
 
@@ -44,13 +46,13 @@ import org.enso.interpreter.runtime.state.State;
       """)
 public final class EqualsNode extends Node {
   @Child private EqualsSimpleNode node;
-  @Child private TypeOfNode types;
+  @Child private TypesLibrary types;
   @Child private WithConversionNode convert;
 
   private static final EqualsNode UNCACHED =
-      new EqualsNode(EqualsSimpleNodeGen.getUncached(), TypeOfNode.getUncached(), true);
+      new EqualsNode(EqualsSimpleNodeGen.getUncached(), TypesLibrary.getUncached(), true);
 
-  private EqualsNode(EqualsSimpleNode node, TypeOfNode types, boolean uncached) {
+  private EqualsNode(EqualsSimpleNode node, TypesLibrary types, boolean uncached) {
     this.node = node;
     this.types = types;
     if (uncached) {
@@ -65,7 +67,8 @@ public final class EqualsNode extends Node {
 
   @NeverDefault
   public static EqualsNode create() {
-    return new EqualsNode(EqualsSimpleNode.build(), TypeOfNode.build(), false);
+    return new EqualsNode(
+        EqualsSimpleNode.build(), TypesLibrary.getFactory().createDispatched(10), false);
   }
 
   @NeverDefault
@@ -85,9 +88,9 @@ public final class EqualsNode extends Node {
   public boolean execute(
       VirtualFrame frame, @AcceptsError Object self, @AcceptsError Object other) {
     var areEqual = node.execute(frame, self, other);
-    if (!areEqual) {
-      var selfType = types.execute(self);
-      var otherType = types.execute(other);
+    if (!areEqual && types.hasType(self) && types.hasType(other)) {
+      var selfType = types.getType(self);
+      var otherType = types.getType(other);
       if (selfType != otherType) {
         if (convert == null) {
           CompilerDirectives.transferToInterpreter();
@@ -117,13 +120,12 @@ public final class EqualsNode extends Node {
      */
     abstract boolean executeWithConversion(VirtualFrame frame, Object self, Object that);
 
-    static Type findType(TypeOfNode typeOfNode, Object obj) {
-      var rawType = typeOfNode.execute(obj);
-      return rawType instanceof Type type ? type : null;
+    static Type findType(TypesLibrary typeOfNode, Object obj) {
+      return typeOfNode.hasType(obj) ? typeOfNode.getType(obj) : null;
     }
 
     static Type findTypeUncached(Object obj) {
-      return findType(TypeOfNode.getUncached(), obj);
+      return findType(TypesLibrary.getUncached(), obj);
     }
 
     private static boolean isDefinedIn(ModuleScope scope, Function fn) {
@@ -206,7 +208,7 @@ public final class EqualsNode extends Node {
         VirtualFrame frame,
         Object self,
         Object that,
-        @Shared("typeOf") @Cached TypeOfNode typeOfNode,
+        @Shared("typeOf") @CachedLibrary(limit = "10") TypesLibrary typeOfNode,
         @Cached(value = "findType(typeOfNode, self)", uncached = "findTypeUncached(self)")
             Type selfType,
         @Cached(value = "findType(typeOfNode, that)", uncached = "findTypeUncached(that)")
@@ -229,7 +231,7 @@ public final class EqualsNode extends Node {
         VirtualFrame frame,
         Object self,
         Object that,
-        @Shared("typeOf") @Cached TypeOfNode typeOfNode,
+        @Shared("typeOf") @CachedLibrary(limit = "10") TypesLibrary typeOfNode,
         @Shared("convert") @Cached InteropConversionCallNode convertNode,
         @Shared("invoke") @Cached(allowUncached = true) EqualsSimpleNode equalityNode) {
       var selfType = findType(typeOfNode, self);

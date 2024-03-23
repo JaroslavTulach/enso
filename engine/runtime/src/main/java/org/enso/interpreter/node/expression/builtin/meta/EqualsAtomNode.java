@@ -25,6 +25,7 @@ import org.enso.interpreter.runtime.data.Type;
 import org.enso.interpreter.runtime.data.atom.Atom;
 import org.enso.interpreter.runtime.data.atom.AtomConstructor;
 import org.enso.interpreter.runtime.data.atom.StructsLibrary;
+import org.enso.interpreter.runtime.library.dispatch.TypesLibrary;
 import org.enso.interpreter.runtime.state.State;
 
 @GenerateUncached
@@ -104,7 +105,7 @@ public abstract class EqualsAtomNode extends Node {
 
   @TruffleBoundary
   private static boolean orderingOrNull(Node where, EnsoContext ctx, Object obj, Function fn) {
-    var type = TypeOfNode.getUncached().execute(obj);
+    var type = TypesLibrary.getUncached().getType(obj);
     if (type == ctx.getBuiltins().ordering().getType() || type == ctx.getBuiltins().nothing()) {
       return true;
     } else {

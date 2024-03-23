@@ -27,7 +27,6 @@ import org.enso.interpreter.dsl.BuiltinMethod;
 import org.enso.interpreter.node.callable.dispatch.CallOptimiserNode;
 import org.enso.interpreter.node.callable.resolver.MethodResolverNode;
 import org.enso.interpreter.node.expression.builtin.meta.EqualsNode;
-import org.enso.interpreter.node.expression.builtin.meta.TypeOfNode;
 import org.enso.interpreter.node.expression.builtin.text.AnyToTextNode;
 import org.enso.interpreter.runtime.EnsoContext;
 import org.enso.interpreter.runtime.callable.UnresolvedSymbol;
@@ -117,7 +116,7 @@ public abstract class SortVectorNode extends Node {
       @Shared("equalsNode") @Cached EqualsNode equalsNode,
       @Shared("lengthNode") @Cached ArrayLikeLengthNode lengthNode,
       @Shared("atNode") @Cached ArrayLikeAtNode atNode,
-      @Shared("typeOfNode") @Cached TypeOfNode typeOfNode,
+      @Shared("typeOfNode") @CachedLibrary(limit = "10") TypesLibrary typeOfNode,
       @Shared("anyToTextNode") @Cached AnyToTextNode toTextNode,
       @Shared("interop") @CachedLibrary(limit = "10") InteropLibrary interop) {
     EnsoContext ctx = EnsoContext.get(this);
@@ -156,7 +155,7 @@ public abstract class SortVectorNode extends Node {
       MaterializedFrame frame,
       LessThanNode lessThanNode,
       EqualsNode equalsNode,
-      TypeOfNode typeOfNode,
+      TypesLibrary typeOfNode,
       AnyToTextNode toTextNode,
       long ascending,
       long problemBehaviorNum,
@@ -192,7 +191,7 @@ public abstract class SortVectorNode extends Node {
       @CachedLibrary(limit = "5") TypesLibrary typesLib,
       @Shared("lessThanNode") @Cached LessThanNode lessThanNode,
       @Shared("equalsNode") @Cached EqualsNode equalsNode,
-      @Shared("typeOfNode") @Cached TypeOfNode typeOfNode,
+      @Shared("typeOfNode") @CachedLibrary(limit = "10") TypesLibrary typeOfNode,
       @Shared("lengthNode") @Cached ArrayLikeLengthNode lengthNode,
       @Shared("atNode") @Cached ArrayLikeAtNode atNode,
       @Shared("anyToTextNode") @Cached AnyToTextNode toTextNode,
@@ -575,14 +574,14 @@ public abstract class SortVectorNode extends Node {
     private final MaterializedFrame frame;
     private final LessThanNode lessThanNode;
     private final EqualsNode equalsNode;
-    private final TypeOfNode typeOfNode;
+    private final TypesLibrary typeOfNode;
     private final boolean ascending;
 
     private DefaultSortComparator(
         MaterializedFrame frame,
         LessThanNode lessThanNode,
         EqualsNode equalsNode,
-        TypeOfNode typeOfNode,
+        TypesLibrary typeOfNode,
         AnyToTextNode toTextNode,
         boolean ascending,
         ProblemBehavior problemBehavior,
@@ -661,12 +660,12 @@ public abstract class SortVectorNode extends Node {
     }
 
     private boolean isPrimitiveValue(Object object) {
-      return isBuiltinType(typeOfNode.execute(object));
+      return isBuiltinType(typeOfNode.getType(object));
     }
 
     private String getQualifiedTypeName(Object object) {
-      var typeObj = typeOfNode.execute(object);
-      return toTextNode.execute(typeObj).toString();
+      var typeObj = typeOfNode.getType(object);
+      return typeObj.getQualifiedName().toString();
     }
 
     private int getPrimitiveValueCost(Object object) {
@@ -675,7 +674,7 @@ public abstract class SortVectorNode extends Node {
       } else if (isNan(object)) {
         return 100;
       } else {
-        var type = typeOfNode.execute(object);
+        var type = typeOfNode.getType(object);
         return getBuiltinTypeCost(type);
       }
     }

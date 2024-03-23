@@ -13,9 +13,9 @@ import org.enso.interpreter.instrument.VisualizationHolder;
 import org.enso.interpreter.instrument.profiling.ExecutionTime;
 import org.enso.interpreter.instrument.profiling.ProfilingInfo;
 import org.enso.interpreter.node.callable.FunctionCallInstrumentationNode;
-import org.enso.interpreter.node.expression.builtin.meta.TypeOfNode;
 import org.enso.interpreter.runtime.callable.UnresolvedSymbol;
 import org.enso.interpreter.runtime.data.Type;
+import org.enso.interpreter.runtime.library.dispatch.TypesLibrary;
 import org.enso.interpreter.runtime.type.Constants;
 import org.enso.interpreter.service.ExecutionService.ExpressionCall;
 import org.enso.interpreter.service.ExecutionService.ExpressionValue;
@@ -206,8 +206,9 @@ final class ExecutionCallbacks implements IdExecutionService.Callbacks {
     if (value instanceof UnresolvedSymbol) {
       resultType = Constants.UNRESOLVED_SYMBOL;
     } else {
-      var typeOfNode = TypeOfNode.getUncached();
-      Object typeResult = value == null ? null : typeOfNode.execute(value);
+      var typeOfNode = TypesLibrary.getUncached();
+      Object typeResult =
+          value == null || !typeOfNode.hasType(value) ? null : typeOfNode.getType(value);
       if (typeResult instanceof Type t) {
         resultType = t.getQualifiedName().toString();
       } else {

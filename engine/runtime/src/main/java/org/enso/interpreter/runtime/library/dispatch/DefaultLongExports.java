@@ -8,7 +8,7 @@ import org.enso.interpreter.runtime.EnsoContext;
 import org.enso.interpreter.runtime.data.Type;
 
 @ExportLibrary(value = TypesLibrary.class, receiverType = Long.class)
-public class DefaultLongExports {
+final class DefaultLongExports {
   @ExportMessage
   static boolean hasType(Long receiver) {
     return true;

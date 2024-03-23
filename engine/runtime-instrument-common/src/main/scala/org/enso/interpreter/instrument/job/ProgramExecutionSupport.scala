@@ -11,7 +11,7 @@ import org.enso.interpreter.instrument.execution.{
 }
 import org.enso.interpreter.instrument.profiling.ExecutionTime
 import org.enso.interpreter.node.callable.FunctionCallInstrumentationNode.FunctionCall
-import org.enso.interpreter.node.expression.builtin.meta.TypeOfNode
+import org.enso.interpreter.runtime.library.dispatch.TypesLibrary
 import org.enso.interpreter.runtime.`type`.{Types, TypesGen}
 import org.enso.interpreter.runtime.data.atom.AtomConstructor
 import org.enso.interpreter.runtime.callable.function.Function
@@ -522,7 +522,7 @@ object ProgramExecutionSupport {
           Array[Object](
             visualization.id,
             expressionId,
-            Try(TypeOfNode.getUncached.execute(expressionValue))
+            Try(TypesLibrary.getUncached.getType(expressionValue))
               .getOrElse(expressionValue.getClass)
           )
         )
@@ -559,9 +559,7 @@ object ProgramExecutionSupport {
         val message =
           Option(error.getMessage).getOrElse(error.getClass.getSimpleName)
         if (!TypesGen.isPanicSentinel(expressionValue)) {
-          val typeOfNode =
-            Option(TypeOfNode.getUncached.execute(expressionValue))
-              .getOrElse(expressionValue.getClass)
+          val typeOfNode = TypesLibrary.getUncached.getType(expressionValue)
           ctx.executionService.getLogger.log(
             Level.WARNING,
             "Execution of visualization [{0}] on value [{1}] of [{2}] failed. {3}",

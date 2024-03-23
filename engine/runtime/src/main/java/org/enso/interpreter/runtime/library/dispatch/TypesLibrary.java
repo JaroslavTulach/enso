@@ -13,6 +13,7 @@ import org.enso.interpreter.runtime.data.Type;
 @GenerateLibrary.DefaultExport(DefaultLongExports.class)
 @GenerateLibrary.DefaultExport(DefaultDoubleExports.class)
 @GenerateLibrary.DefaultExport(DefaultBooleanExports.class)
+@GenerateLibrary.DefaultExport(DefaultObjectExports.class)
 public abstract class TypesLibrary extends Library {
 
   /**

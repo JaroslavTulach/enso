@@ -5,22 +5,25 @@ import com.oracle.truffle.api.dsl.NeverDefault;
 import com.oracle.truffle.api.interop.InteropLibrary;
 import com.oracle.truffle.api.interop.UnsupportedMessageException;
 import com.oracle.truffle.api.nodes.Node;
-import org.enso.interpreter.node.expression.builtin.meta.TypeOfNode;
 import org.enso.interpreter.runtime.EnsoContext;
-import org.enso.interpreter.runtime.data.Type;
+import org.enso.interpreter.runtime.library.dispatch.TypesLibrary;
 
 public final class TypeToDisplayTextNode extends Node {
-  @Child private TypeOfNode typeOfNode;
+  @Child private TypesLibrary typeOfNode;
 
-  private TypeToDisplayTextNode(TypeOfNode typeOfNode) {
+  private TypeToDisplayTextNode(TypesLibrary typeOfNode) {
     this.typeOfNode = typeOfNode;
   }
 
   public String execute(Object o) {
-    return switch (typeOfNode.execute(o)) {
-      case Type t -> t.getName();
-      default -> fallbackDisplay(o);
-    };
+    try {
+      if (typeOfNode.hasType(o)) {
+        var t = typeOfNode.getType(o);
+        return t.getName();
+      }
+    } catch (AssertionError err) {
+    }
+    return fallbackDisplay(o);
   }
 
   /**
@@ -30,11 +33,11 @@ public final class TypeToDisplayTextNode extends Node {
    */
   @NeverDefault
   public static TypeToDisplayTextNode create() {
-    return new TypeToDisplayTextNode(TypeOfNode.build());
+    return new TypeToDisplayTextNode(TypesLibrary.getFactory().createDispatched(10));
   }
 
   public static TypeToDisplayTextNode getUncached() {
-    return new TypeToDisplayTextNode(TypeOfNode.getUncached());
+    return new TypeToDisplayTextNode(TypesLibrary.getUncached());
   }
 
   @CompilerDirectives.TruffleBoundary

@@ -8,7 +8,7 @@ import org.enso.interpreter.runtime.EnsoContext;
 import org.enso.interpreter.runtime.data.Type;
 
 @ExportLibrary(value = TypesLibrary.class, receiverType = Boolean.class)
-public class DefaultBooleanExports {
+class DefaultBooleanExports {
   @ExportMessage
   static boolean hasType(Boolean receiver) {
     return true;
