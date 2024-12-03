@@ -4,6 +4,7 @@ import Standard.Base.Errors.Illegal_State.Illegal_State
 import Standard.Base.Runtime.Managed_Resource.Managed_Resource
 import Standard.Base.Runtime.Ref.Ref
 import project.Runtime.GC_Example
+from Standard.Base.Errors.Common import Uninitialized_State
 
 from Standard.Test import all
 
@@ -98,12 +99,10 @@ add_specs suite_builder = suite_builder.group "Managed_Resource" group_builder->
             builder.append "Finalized:"+mr.to_text
 
             # operation on finalized resource
-            none = mr.with v->
-                builder.append "  is_error:"+v.is_error.to_text
-                v.if_not_error <|
-                    # should never be called
-                    builder.append "  empty :"+v.to_text
-                    "Don't call me!"
+            handler p =
+                builder.append "  panic:"+p.payload.to_text
+                Error.throw p.payload
+            none = Panic.catch Uninitialized_State (mr.with v-> builder.append "Unexpected:"+v.to_text) handler
 
             builder.append none.to_text
             none.is_error . should_be_true
@@ -116,7 +115,7 @@ add_specs suite_builder = suite_builder.group "Managed_Resource" group_builder->
             With finished:6
               finalizing:-1
             Finalized:Managed_Resource -1
-              is_error:True
+              panic:(Uninitialized_State.Error Managed_Resource -1)
             (Error: (Uninitialized_State.Error Managed_Resource -1))
 
         msg_text = messages.join '\n'

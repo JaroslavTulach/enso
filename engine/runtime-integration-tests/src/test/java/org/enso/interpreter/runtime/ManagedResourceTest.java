@@ -12,10 +12,12 @@ import java.lang.ref.WeakReference;
 import org.enso.common.MethodNames;
 import org.enso.test.utils.ContextUtils;
 import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
 import org.hamcrest.Matchers;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -95,17 +97,25 @@ public class ManagedResourceTest {
 
     ensoCtx.getResourceManager().scheduleFinalizationOfSystemReferences();
 
-    var none = getResource.execute(ref);
-    assertTrue("Value was GCed", none.isException());
-    assertEquals(
-        "It is an error", "Standard.Base.Error.Error", none.getMetaObject().getMetaQualifiedName());
-    assertThat(
-        "Contains Uninitialized_State as payload",
-        none.toString(),
-        Matchers.allOf(
-            Matchers.containsString("Uninitialized_State"),
-            Matchers.containsString("Error"),
-            Matchers.containsString("Managed_Resource")));
+    try {
+      var none = getResource.execute(ref);
+      Assert.fail("Unexepcted return value: " + none);
+    } catch (PolyglotException ex) {
+      var none = ex.getGuestObject();
+      assertNotNull("There is a guest object", none);
+      assertTrue("Value was GCed", none.isException());
+      assertEquals(
+          "It is an error",
+          "Standard.Base.Panic.Panic",
+          none.getMetaObject().getMetaQualifiedName());
+      assertThat(
+          "Contains Uninitialized_State as payload",
+          none.toString(),
+          Matchers.allOf(
+              Matchers.containsString("Uninitialized_State"),
+              Matchers.containsString("Error"),
+              Matchers.containsString("Managed_Resource")));
+    }
   }
 
   private static void assertGC(String msg, boolean expectGC, Reference<?> ref) {

@@ -69,12 +69,12 @@ type Managed_Resource
        Executes the provided action on the resource managed by the managed
        resource object. The action is invoked with the managed resource only if
        it has not yet been finalized. If the resource has already been finalized
-       then `Error` with `Uninitialized_State` payload is passed into the
-       action instead of the resource.
+       then `Panic` with `Uninitialized_State` payload is yielded without
+       invoking the action.
 
        Arguments:
        - action: The action that will be applied to the resource managed by
-         the `Managed_Resource` (or to `Uninitialized_State` error).
+         the `Managed_Resource`
        Returns:
        Value returned from the `action`
 

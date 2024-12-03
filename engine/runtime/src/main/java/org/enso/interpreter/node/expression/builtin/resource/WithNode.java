@@ -7,7 +7,7 @@ import org.enso.interpreter.node.callable.InvokeCallableNode;
 import org.enso.interpreter.runtime.EnsoContext;
 import org.enso.interpreter.runtime.callable.argument.CallArgumentInfo;
 import org.enso.interpreter.runtime.data.ManagedResource;
-import org.enso.interpreter.runtime.error.DataflowError;
+import org.enso.interpreter.runtime.error.PanicException;
 import org.enso.interpreter.runtime.state.State;
 
 @BuiltinMethod(
@@ -41,8 +41,7 @@ public final class WithNode extends Node {
       }
     } else {
       var payload = ctx.getBuiltins().error().makeUninitializedStateError(mr);
-      var err = DataflowError.withDefaultTrace(payload, this);
-      return invokeCallableNode.execute(action, frame, state, new Object[] {err});
+      throw new PanicException(payload, this);
     }
   }
 }
