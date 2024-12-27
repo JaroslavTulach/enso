@@ -35,6 +35,10 @@ final class HostClassLoader extends URLClassLoader implements AutoCloseable {
     super(new URL[0]);
   }
 
+  HostClassLoader(ClassLoader parent) {
+    super(new URL[0], parent);
+  }
+
   static {
     var bootModules = ModuleLayer.boot().modules();
     var hasRuntimeMod =

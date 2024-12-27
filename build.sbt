@@ -3623,11 +3623,7 @@ lazy val `engine-runner` = project
           idExecInstr ++
           epbLang
       ).distinct
-      val stdLibsJars =
-        `base-polyglot-root`.listFiles("*.jar").map(_.getAbsolutePath()) ++
-        `image-polyglot-root`.listFiles("*.jar").map(_.getAbsolutePath()) ++
-        `table-polyglot-root`.listFiles("*.jar").map(_.getAbsolutePath())
-      core ++ stdLibsJars
+      core
     },
     buildSmallJdk := {
       val smallJdkDirectory = (target.value / "jdk").getAbsoluteFile()
@@ -3712,11 +3708,25 @@ lazy val `engine-runner` = project
               // "-H:-DeleteLocalSymbols",
               // you may need to set smallJdk := None to use following flags:
               // "--trace-class-initialization=org.enso.syntax2.Parser",
-              "-Dnic=nic"
+              "-Dnic=nic",
+              "-Denso.libs.path=" + {
+                val stdLibsJars =
+                  `base-polyglot-root`
+                    .listFiles("*.jar")
+                    .map(_.getAbsolutePath()) ++
+                  `image-polyglot-root`
+                    .listFiles("*.jar")
+                    .map(_.getAbsolutePath()) ++
+                  `table-polyglot-root`
+                    .listFiles("*.jar")
+                    .map(_.getAbsolutePath())
+                stdLibsJars.mkString(File.pathSeparator)
+              }
             ),
             mainClass = Some("org.enso.runner.Main"),
             initializeAtRuntime = Seq(
               "org.apache",
+              "com.fasterxml",
               "org.openxmlformats",
               "org.jline",
               "io.methvin.watchservice",

@@ -1,28 +1,38 @@
-package org.enso.runner;
+package org.enso.interpreter.runtime;
 
 import static scala.jdk.javaapi.CollectionConverters.asJava;
 
 import java.io.File;
+import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.TreeSet;
 import org.enso.compiler.core.EnsoParser;
 import org.enso.compiler.core.ir.module.scope.imports.Polyglot;
-import org.enso.filesystem.FileSystem$;
-import org.enso.pkg.NativeLibraryFinder;
 import org.enso.pkg.PackageManager$;
 import org.graalvm.nativeimage.hosted.Feature;
 import org.graalvm.nativeimage.hosted.RuntimeProxyCreation;
 import org.graalvm.nativeimage.hosted.RuntimeReflection;
-import org.graalvm.nativeimage.hosted.RuntimeSystemProperties;
 
 public final class EnsoLibraryFeature implements Feature {
   @Override
   public void beforeAnalysis(BeforeAnalysisAccess access) {
-
+    var hcl = new HostClassLoader(access.getApplicationClassLoader());
+    var libsClassPath = System.getProperty("enso.libs.path").split(File.pathSeparator);
     var libs = new LinkedHashSet<Path>();
-    for (var p : access.getApplicationClassPath()) {
+    for (var path : libsClassPath) {
+      var p = new File(path).toPath();
+      if (!p.toFile().isFile()) {
+        throw new IllegalStateException("No such file: " + p);
+      }
+      try {
+        var entry = p.toUri().toURL();
+        System.err.println("adding cp: " + entry);
+        hcl.add(entry);
+      } catch (MalformedURLException ex) {
+        throw new IllegalStateException("No such URL: " + p, ex);
+      }
       var p1 = p.getParent();
       if (p1 != null && p1.getFileName().toString().equals("java")) {
         var p2 = p1.getParent();
@@ -51,7 +61,6 @@ public final class EnsoLibraryFeature implements Feature {
     */
 
     var classes = new TreeSet<String>();
-    var nativeLibPaths = new TreeSet<String>();
     try {
       for (var p : libs) {
         var result = PackageManager$.MODULE$.Default().loadPackage(p.toFile());
@@ -65,7 +74,11 @@ public final class EnsoLibraryFeature implements Feature {
                 var name = new StringBuilder(entity.getJavaName());
                 Class<?> clazz;
                 for (; ; ) {
-                  clazz = access.findClassByName(name.toString());
+                  try {
+                    clazz = hcl.loadClass(name.toString());
+                  } catch (ClassNotFoundException ex) {
+                    clazz = access.findClassByName(name.toString());
+                  }
                   if (clazz != null) {
                     break;
                   }
@@ -77,43 +90,28 @@ public final class EnsoLibraryFeature implements Feature {
                 }
                 classes.add(clazz.getName());
                 RuntimeReflection.register(clazz);
-                RuntimeReflection.register(clazz.getConstructors());
-                RuntimeReflection.register(clazz.getMethods());
-                RuntimeReflection.register(clazz.getFields());
                 RuntimeReflection.registerAllConstructors(clazz);
                 RuntimeReflection.registerAllFields(clazz);
                 RuntimeReflection.registerAllMethods(clazz);
                 if (clazz.isInterface()) {
                   RuntimeProxyCreation.register(clazz);
                 }
+                RuntimeReflection.register(clazz.getConstructors());
+                RuntimeReflection.register(clazz.getMethods());
+                RuntimeReflection.register(clazz.getFields());
               }
-            }
-          }
-          if (pkg.nativeLibraryDir().exists()) {
-            var nativeLibs =
-                NativeLibraryFinder.listAllNativeLibraries(pkg, FileSystem$.MODULE$.defaultFs());
-            for (var nativeLib : nativeLibs) {
-              assert nativeLib.exists() && nativeLib.isFile();
-              var dir = nativeLib.toPath().getParent().toFile();
-              assert dir.exists() && dir.isDirectory();
-              nativeLibPaths.add(dir.getAbsolutePath());
-              var current = System.getProperty("java.library.path");
-              RuntimeSystemProperties.register(
-                  "java.library.path", current + File.pathSeparator + dir.getAbsolutePath());
             }
           }
         }
       }
-    } catch (Exception ex) {
+    } catch (LinkageError | Exception ex) {
       ex.printStackTrace(System.err);
       throw new IllegalStateException(ex);
     }
-    System.err.println("Summary for polyglot import java:");
-    for (var className : classes) {
-      System.err.println("  " + className);
-    }
+    //    System.err.println("Summary for polyglot import java:");
+    //    for (var className : classes) {
+    //      System.err.println("  " + className);
+    //    }
     System.err.println("Registered " + classes.size() + " classes for reflection");
-    System.err.println(
-        "Registered native libraries into runtime's java.library.path: " + nativeLibPaths);
   }
 }
