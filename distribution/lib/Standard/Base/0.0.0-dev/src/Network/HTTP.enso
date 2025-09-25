@@ -29,6 +29,7 @@ import project.System.File.File
 from project.Data.Boolean import Boolean, False, True
 from project.Data.Json.Extensions import all
 from project.Data.Text.Extensions import all
+from project.Enso_Cloud.Enso_Secret import as_hideable_value
 from project.Error import all
 
 polyglot java import java.io.IOException
@@ -177,7 +178,8 @@ type HTTP
                     # Create Unified Header list
                     boundary_header_list = if resolved_body.boundary.is_nothing then [] else [Header.multipart_form_data resolved_body.boundary]
                     all_headers = headers + boundary_header_list
-                    mapped_headers = all_headers.map on_problems=No_Wrap.Value .to_java_pair
+                    mapped_headers = all_headers.fold Dictionary.empty \map -> \v ->
+                        map.insert v.name (as_hideable_value v.value)
 
                     response = Response.new (EnsoSecretHelper.makeRequest (self.make_client self resolved_body.hash) builder req.uri.to_java_representation mapped_headers (cache_policy.should_use_cache req))
                     if error_on_failure_code.not || response.code.is_success then response else

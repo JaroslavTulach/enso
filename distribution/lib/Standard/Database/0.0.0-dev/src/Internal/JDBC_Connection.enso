@@ -301,9 +301,9 @@ create url properties = handle_sql_errors <|
    private: true
    ---
 properties_as_java_props properties =
-    properties.map pair->
+    properties.fold Dictionary.empty \map -> \pair ->
         java_value = as_hideable_value pair.second
-        Java_Pair.create pair.first java_value
+        map.insert pair.first java_value
 
 ## ---
    private: true

@@ -1,3 +1,4 @@
+import project.Data.Dictionary.Dictionary
 import project.Data.Json.JS_Object
 import project.Data.Numbers.Integer
 import project.Data.Ordering.Comparable
@@ -357,8 +358,9 @@ type URI
        secrets hidden or processed by trusted operations.
     to_java_representation : URIWithSecrets
     to_java_representation self =
-        parameters = self.additional_query_parameters.map p->
-            Java_Pair.create p.first (as_hideable_value p.second)
+        parameters = self.additional_query_parameters.fold Dictionary.empty \map -> \p->
+            java_value = as_hideable_value p.second
+            map.insert p.first java_value
         URIWithSecrets.new self.internal_uri parameters
 
     ## ---

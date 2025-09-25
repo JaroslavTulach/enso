@@ -3,9 +3,7 @@ package org.enso.database;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import org.enso.base.enso_cloud.EnsoSecretAccessDenied;
@@ -13,7 +11,6 @@ import org.enso.base.enso_cloud.EnsoSecretHelper;
 import org.enso.base.enso_cloud.HideableValue;
 import org.enso.database.audit.CloudAuditedConnection;
 import org.enso.database.audit.LocalAuditedConnection;
-import org.graalvm.collections.Pair;
 
 /**
  * A helper class for accessing the JDBC components.
@@ -44,7 +41,7 @@ public final class JDBCProxy {
    * @param properties configuration for the connection
    * @return a connection
    */
-  public static Connection getConnection(String url, List<Pair<String, HideableValue>> properties)
+  public static Connection getConnection(String url, Map<String, HideableValue> properties)
       throws SQLException {
     // We need to manually register all the drivers because the DriverManager is not able
     // to correctly use our class loader, it only delegates to the platform class loader when
@@ -56,7 +53,7 @@ public final class JDBCProxy {
 
     PartitionedProperties partitionedProperties = PartitionedProperties.parse(properties);
     var rawConnection =
-        EnsoSecretHelper.getJDBCConnection(url, partitionedProperties.jdbcProperties);
+        EnsoSecretHelper.getJDBCConnection(url, partitionedProperties.jdbcProperties());
     return switch (partitionedProperties.audited()) {
       case "local" -> new LocalAuditedConnection(rawConnection);
       case "cloud" ->
@@ -73,21 +70,21 @@ public final class JDBCProxy {
   public static final String RELATED_ASSET_ID_KEY = ENSO_PROPERTY_PREFIX + "relatedAssetId";
 
   private record PartitionedProperties(
-      Map<String, String> ensoProperties, List<Pair<String, HideableValue>> jdbcProperties) {
-    public static PartitionedProperties parse(List<Pair<String, HideableValue>> properties) {
-      List<Pair<String, HideableValue>> jdbcProperties = new ArrayList<>();
-      HashMap<String, String> ensoProperties = new HashMap<>();
+      Map<String, String> ensoProperties, Map<String, HideableValue> jdbcProperties) {
+    public static PartitionedProperties parse(Map<String, HideableValue> properties) {
+      Map<String, HideableValue> jdbcProperties = new HashMap<>();
+      Map<String, String> ensoProperties = new HashMap<>();
 
-      for (var pair : properties) {
-        if (pair.getLeft().startsWith(ENSO_PROPERTY_PREFIX)) {
+      for (var pair : properties.entrySet()) {
+        if (pair.getKey().startsWith(ENSO_PROPERTY_PREFIX)) {
           try {
-            ensoProperties.put(pair.getLeft(), pair.getRight().safeResolve());
+            ensoProperties.put(pair.getKey(), pair.getValue().safeResolve());
           } catch (EnsoSecretAccessDenied e) {
             throw new IllegalStateException(
-                "Internal Enso property " + pair.getLeft() + " should not contain secrets.");
+                "Internal Enso property " + pair.getValue() + " should not contain secrets.");
           }
         } else {
-          jdbcProperties.add(pair);
+          jdbcProperties.put(pair.getKey(), pair.getValue());
         }
       }
 

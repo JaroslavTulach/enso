@@ -10,13 +10,12 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import org.enso.base.enso_cloud.ExternalLibraryCredentialHelper;
 import org.enso.base.enso_cloud.HideableValue;
 import org.enso.base.net.http.UrlencodedBodyBuilder;
 import org.enso.database.JDBCProxy;
-import org.graalvm.collections.Pair;
 
 public final class SnowflakeCloudCredentials {
   private static SnowflakeCredentialConfig unsafeReadCredential(
@@ -49,15 +48,15 @@ public final class SnowflakeCloudCredentials {
 
   public static Connection makeConnection(
       String url,
-      List<Pair<String, HideableValue>> properties,
+      Map<String, HideableValue> properties,
       ExternalLibraryCredentialHelper.CredentialReference credentialReference)
       throws SQLException {
     SnowflakeCredentialConfig credentials = unsafeReadCredential(credentialReference);
     AccessToken accessToken = credentials.refresh();
-    var secureProperties = new ArrayList<>(properties);
-    secureProperties.add(Pair.create("authenticator", HideableValue.plain("oauth")));
-    secureProperties.add(Pair.create("user", HideableValue.plain(accessToken.username())));
-    secureProperties.add(Pair.create("token", HideableValue.plain(accessToken.token())));
+    var secureProperties = new HashMap<>(properties);
+    secureProperties.put("authenticator", HideableValue.plain("oauth"));
+    secureProperties.put("user", HideableValue.plain(accessToken.username()));
+    secureProperties.put("token", HideableValue.plain(accessToken.token()));
     return JDBCProxy.getConnection(url, secureProperties);
   }
 

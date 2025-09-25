@@ -12,17 +12,19 @@ import java.security.PrivateKey;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import org.enso.base.cache.ReloadDetector;
 import org.enso.base.cache.ResponseTooLargeException;
 import org.enso.base.net.URISchematic;
 import org.enso.base.net.URIWithSecrets;
-import org.graalvm.collections.Pair;
 
 /** Makes HTTP requests with secrets in either header or query string. */
 public final class EnsoSecretHelper extends SecretValueResolver {
@@ -33,18 +35,18 @@ public final class EnsoSecretHelper extends SecretValueResolver {
    *
    * @param properties properties in the form of {@code List<Pair<String, HideableValue>>}
    */
-  public static Connection getJDBCConnection(
-      String url, List<Pair<String, HideableValue>> properties) throws SQLException {
+  public static Connection getJDBCConnection(String url, Map<String, HideableValue> properties)
+      throws SQLException {
     var javaProperties = new Properties();
-    for (var pair : properties) {
-      HideableValue value = pair.getRight();
+    for (var pair : properties.entrySet()) {
+      HideableValue value = pair.getValue();
       // Special handling for PrivateKey parameter.
       if (value instanceof HideableImpl.InterpretAsPrivateKey(HideableValue innerValue)) {
         String rawKey = resolveValue(innerValue);
         PrivateKey key = HideableImpl.InterpretAsPrivateKey.decodePrivateKey(rawKey);
-        javaProperties.put(pair.getLeft(), key);
+        javaProperties.put(pair.getKey(), key);
       } else {
-        javaProperties.setProperty(pair.getLeft(), resolveValue(pair.getRight()));
+        javaProperties.setProperty(pair.getKey(), resolveValue(pair.getValue()));
       }
     }
 
@@ -57,10 +59,10 @@ public final class EnsoSecretHelper extends SecretValueResolver {
    */
   private static URI resolveURI(URIWithSecrets uri) {
     try {
-      List<Pair<String, String>> resolvedQueryParameters =
-          uri.queryParameters().stream()
-              .map(p -> Pair.create(p.getLeft(), resolveValue(p.getRight())))
-              .toList();
+      Map<String, String> resolvedQueryParameters =
+          uri.queryParameters().entrySet().stream()
+              .map(p -> new AbstractMap.SimpleEntry<>(p.getKey(), resolveValue(p.getValue())))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       URISchematic resolvedSchematic = new URISchematic(uri.baseUri(), resolvedQueryParameters);
       return resolvedSchematic.build();
     } catch (URISyntaxException e) {
@@ -80,7 +82,7 @@ public final class EnsoSecretHelper extends SecretValueResolver {
       HttpClient client,
       Builder origBuilder,
       URIWithSecrets uri,
-      List<Pair<String, HideableValue>> headers,
+      Map<String, HideableValue> headers,
       boolean useCache)
       throws IllegalArgumentException,
           IOException,
@@ -92,13 +94,14 @@ public final class EnsoSecretHelper extends SecretValueResolver {
     // Build a new URI with the query arguments.
     URI resolvedURI = resolveURI(uri);
 
-    List<Pair<String, String>> resolvedHeaders =
-        headers.stream()
+    Map<String, String> resolvedHeaders =
+        headers.entrySet().stream()
             .map(
                 pair -> {
-                  return Pair.create(pair.getLeft(), resolveValue(pair.getRight()));
+                  return new AbstractMap.SimpleEntry<>(
+                      pair.getKey(), resolveValue(pair.getValue()));
                 })
-            .toList();
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
     var requestMaker =
         new RequestMaker(client, builder, uri, resolvedURI, headers, resolvedHeaders);
@@ -119,16 +122,16 @@ public final class EnsoSecretHelper extends SecretValueResolver {
     private final Builder builder;
     private final URIWithSecrets uri;
     private final URI resolvedURI;
-    private final List<Pair<String, HideableValue>> headers;
-    private final List<Pair<String, String>> resolvedHeaders;
+    private final Map<String, HideableValue> headers;
+    private final Map<String, String> resolvedHeaders;
 
     RequestMaker(
         HttpClient client,
         Builder builder,
         URIWithSecrets uri,
         URI resolvedURI,
-        List<Pair<String, HideableValue>> headers,
-        List<Pair<String, String>> resolvedHeaders) {
+        Map<String, HideableValue> headers,
+        Map<String, String> resolvedHeaders) {
       this.client = client;
       this.builder = builder;
       this.uri = uri;
@@ -140,7 +143,8 @@ public final class EnsoSecretHelper extends SecretValueResolver {
     @Override
     public EnsoHttpResponse makeRequest() throws IOException, InterruptedException {
       boolean hasSecrets =
-          uri.containsSecrets() || headers.stream().anyMatch(p -> p.getRight().containsSecrets());
+          uri.containsSecrets()
+              || headers.values().stream().anyMatch(HideableValue::containsSecrets);
       if (hasSecrets) {
         if (resolvedURI.getScheme() == null) {
           throw new IllegalArgumentException("The URI must have a scheme.");
@@ -155,8 +159,8 @@ public final class EnsoSecretHelper extends SecretValueResolver {
       builder.uri(resolvedURI);
 
       var resolvedHeadersWithDefaults = withDefaultHeaders(resolvedHeaders);
-      for (Pair<String, String> resolvedHeader : resolvedHeadersWithDefaults) {
-        builder.header(resolvedHeader.getLeft(), resolvedHeader.getRight());
+      for (var resolvedHeader : resolvedHeadersWithDefaults.entrySet()) {
+        builder.header(resolvedHeader.getKey(), resolvedHeader.getValue());
       }
 
       // Build and Send the request.
@@ -176,14 +180,13 @@ public final class EnsoSecretHelper extends SecretValueResolver {
     @Override
     public String hashKey() {
       // Include default headers in cache key to reflect actual request.
-      var sortedHeaders =
-          withDefaultHeaders(resolvedHeaders).stream().sorted(headerNameComparator).toList();
+      var sortedHeaders = withDefaultHeaders(resolvedHeaders);
       List<String> keyStrings = new ArrayList<>(sortedHeaders.size() + 1);
       keyStrings.add(resolvedURI.toString());
 
-      for (Pair<String, String> resolvedHeader : sortedHeaders) {
-        keyStrings.add(resolvedHeader.getLeft());
-        keyStrings.add(resolvedHeader.getRight());
+      for (var resolvedHeader : sortedHeaders.entrySet()) {
+        keyStrings.add(resolvedHeader.getKey());
+        keyStrings.add(resolvedHeader.getValue());
       }
 
       return Integer.toHexString(Arrays.deepHashCode(keyStrings.toArray()));
@@ -216,10 +219,6 @@ public final class EnsoSecretHelper extends SecretValueResolver {
     ReloadDetector.simulateReloadTestOnly(EnsoSecretReader.INSTANCE);
   }
 
-  private static final Comparator<Pair<String, String>> headerNameComparator =
-      Comparator.comparing((Pair<String, String> pair) -> pair.getLeft())
-          .thenComparing(Comparator.comparing(pair -> pair.getRight()));
-
   private static InputStream decodeContentEncoding(InputStream stream, HttpHeaders headers)
       throws IOException {
     String encoding = headers.firstValue("content-encoding").map(String::toLowerCase).orElse("");
@@ -229,12 +228,12 @@ public final class EnsoSecretHelper extends SecretValueResolver {
     return stream;
   }
 
-  private static List<Pair<String, String>> withDefaultHeaders(List<Pair<String, String>> headers) {
+  private static Map<String, String> withDefaultHeaders(Map<String, String> headers) {
     boolean hasAccept = false;
     boolean hasAcceptEncoding = false;
 
-    for (Pair<String, String> h : headers) {
-      String name = h.getLeft();
+    for (var h : headers.entrySet()) {
+      String name = h.getKey();
       if ("accept".equalsIgnoreCase(name)) {
         hasAccept = true;
       } else if ("accept-encoding".equalsIgnoreCase(name)) {
@@ -245,12 +244,13 @@ public final class EnsoSecretHelper extends SecretValueResolver {
       }
     }
 
-    var augmented = new ArrayList<Pair<String, String>>(headers);
+    var augmented = new TreeMap<String, String>();
+    augmented.putAll(headers);
     if (!hasAccept) {
-      augmented.add(Pair.create("Accept", "*/*"));
+      augmented.put("Accept", "*/*");
     }
     if (!hasAcceptEncoding) {
-      augmented.add(Pair.create("Accept-Encoding", "gzip"));
+      augmented.put("Accept-Encoding", "gzip");
     }
     return augmented;
   }
