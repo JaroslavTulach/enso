@@ -3,9 +3,12 @@ package org.enso.os.environment.jni;
 import java.io.File;
 import java.io.FileWriter;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+
 import org.enso.jvm.channel.Channel;
 import org.enso.persist.Persistable;
 
@@ -13,8 +16,19 @@ final class TestMain {
   static final Map<Long, String> CORRECT_RESULTS = new HashMap<>();
 
   private TestMain() {}
+  
+  private static void listS() throws Exception {
+      var sw = Path.of("s:\\windows");
+      var real = sw.toRealPath();
+      System.err.println("real path is : " + real);
+      for (var f : Files.list(real).toList()) {
+          System.err.println("  there is " + f.toRealPath());
+      }
+  }
 
   public static void main(String... args) throws Exception {
+    listS();
+
     var out = new File(args[0]);
     var n = Integer.parseInt(args[1]);
     try (java.io.FileWriter os = new FileWriter(out)) {

@@ -14,7 +14,9 @@ import org.graalvm.word.WordFactory;
 public final class JVM {
   private final JNIBoot.JNICreateJavaVMPointer createJvmFn;
   private final String[] options;
-  private JNI.JNIEnv env = WordFactory.nullPointer();
+  private boolean envReady;
+  private JNI.JNIEnv env;
+  private final Exception at = new Exception("JVM initialized here!");
 
   JVM(JNIBoot.JNICreateJavaVMPointer factory, String[] options) {
     this.createJvmFn = factory;
@@ -82,14 +84,13 @@ public final class JVM {
    *
    * @return JNI environment to make calls into the JVM
    */
-  final JNI.JNIEnv env() {
-    if (env.isNull()) {
-      env = initializeEnv();
+  synchronized final JNI.JNIEnv env() {
+    System.err.println("env is ready: " + envReady + " value: " + env.rawValue());
+    if (envReady) {
+      return env;
     }
-    return env;
-  }
-
-  private synchronized JNI.JNIEnv initializeEnv() {
+    new Exception("initializeEnv!!!!! for " + this).printStackTrace();
+    this.at.printStackTrace();
     var jvmArgs = StackValue.get(JNIBoot.Args.class);
     var optionsCount = options.length;
     jvmArgs.nOptions(optionsCount);
@@ -114,11 +115,13 @@ public final class JVM {
       throw new AssertionError("Error creating JVM: " + res);
     }
 
-    for (var i = 0; i < optionsCount; i++) {
-      holder[i].close();
-    }
-    UnmanagedMemory.free(jvmOpts);
+//    for (var i = 0; i < optionsCount; i++) {
+//      holder[i].close();
+//    }
+  //  UnmanagedMemory.free(jvmOpts);
 
-    return envPtr.readJNIEnv();
+    envReady = true;
+    env = envPtr.readJNIEnv();
+    return env;
   }
 }

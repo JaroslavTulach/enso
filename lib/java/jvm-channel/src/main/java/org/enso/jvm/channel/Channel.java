@@ -11,6 +11,7 @@ import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+
 import org.enso.persist.Persistance;
 import org.graalvm.nativeimage.CurrentIsolate;
 import org.graalvm.nativeimage.ImageInfo;
@@ -158,8 +159,19 @@ public final class Channel<Data extends Channel.Config> implements AutoCloseable
     if (!ImageInfo.inImageCode()) {
       throw new IllegalStateException("Only usable from SubstrateVM");
     }
+    if (true) {
+      // works! 
+      return null; 
+    }
     var e = jvm.env();
+    System.err.println("jvmenv is " + e.rawValue());
+    if (true) {
+      return null; // crashes
+    }
     var classNameWithSlashes = Channel.class.getName().replace('.', '/');
+    if (true) {
+      return null; // crashes
+    }
     try (var classInC = CTypeConversion.toCString(classNameWithSlashes);
         var poolClassInC = CTypeConversion.toCString(configClass.getName());
         var createInC = CTypeConversion.toCString("createJvmPeerChannel");
@@ -168,6 +180,9 @@ public final class Channel<Data extends Channel.Config> implements AutoCloseable
         var handleSigInC = CTypeConversion.toCString("(JJJ)J"); //
         ) {
       var fn = e.getFunctions();
+    if (true) {
+      return null; // crashes
+    }
       var channelClass = fn.getFindClass().call(e, classInC.get());
       assert channelClass.isNonNull() : "Class not found " + classNameWithSlashes;
       var createMethod =
@@ -176,6 +191,10 @@ public final class Channel<Data extends Channel.Config> implements AutoCloseable
       var poolClassInHotSpot = fn.getNewStringUTF().call(e, poolClassInC.get());
       var handleMethod =
           fn.getGetStaticMethodID().call(e, channelClass, handleInC.get(), handleSigInC.get());
+
+    if (true) {
+      return null; // crashes
+    }
 
       var channel = new Channel<>(id, config, e, channelClass, handleMethod);
 
@@ -257,11 +276,7 @@ public final class Channel<Data extends Channel.Config> implements AutoCloseable
   @SuppressWarnings("unchecked")
   private static boolean createJvmPeerChannel(
       long id, long threadId, long callbackFn, String poolClassName) throws Throwable {
-    var configClass = Class.forName(poolClassName);
-    var data = (Config) newInstance(configClass);
-    var channel = new Channel<>(id, data, threadId, callbackFn);
-    var prev = ID_TO_CHANNEL.put(id, channel);
-    return prev == null;
+        return true;
   }
 
   private static final CEntryPointLiteral<CFunctionPointer> CALLBACK_FN =
