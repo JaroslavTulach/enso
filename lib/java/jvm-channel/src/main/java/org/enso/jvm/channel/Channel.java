@@ -17,6 +17,7 @@ import org.enso.persist.Persistance;
 import org.graalvm.nativeimage.CurrentIsolate;
 import org.graalvm.nativeimage.ImageInfo;
 import org.graalvm.nativeimage.IsolateThread;
+import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.StackValue;
 import org.graalvm.nativeimage.UnmanagedMemory;
 import org.graalvm.nativeimage.c.function.CEntryPoint;
@@ -160,7 +161,7 @@ public final class Channel<Data extends Channel.Config> implements AutoCloseable
     if (!ImageInfo.inImageCode()) {
       throw new IllegalStateException("Only usable from SubstrateVM");
     }
-    if (true) {
+    if (Platform.includedIn(Platform.WINDOWS.class)) {
         try {
             // works! if return null;
             // try force I/O init
@@ -171,7 +172,6 @@ public final class Channel<Data extends Channel.Config> implements AutoCloseable
         }
     }
     var e = jvm.env();
-    System.err.println("jvmenv is " + e.rawValue());
     var classNameWithSlashes = Channel.class.getName().replace('.', '/');
     try (var classInC = CTypeConversion.toCString(classNameWithSlashes);
         var poolClassInC = CTypeConversion.toCString(configClass.getName());
@@ -270,7 +270,11 @@ public final class Channel<Data extends Channel.Config> implements AutoCloseable
   @SuppressWarnings("unchecked")
   private static boolean createJvmPeerChannel(
       long id, long threadId, long callbackFn, String poolClassName) throws Throwable {
-        return true;
+    var configClass = Class.forName(poolClassName);
+    var data = (Config) newInstance(configClass);
+    var channel = new Channel<>(id, data, threadId, callbackFn);
+    var prev = ID_TO_CHANNEL.put(id, channel);
+    return prev == null;
   }
 
   private static final CEntryPointLiteral<CFunctionPointer> CALLBACK_FN =
