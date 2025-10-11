@@ -172,13 +172,7 @@ public final class Channel<Data extends Channel.Config> implements AutoCloseable
     }
     var e = jvm.env();
     System.err.println("jvmenv is " + e.rawValue());
-    if (true) {
-      return null; // crashes
-    }
     var classNameWithSlashes = Channel.class.getName().replace('.', '/');
-    if (true) {
-      return null; // crashes
-    }
     try (var classInC = CTypeConversion.toCString(classNameWithSlashes);
         var poolClassInC = CTypeConversion.toCString(configClass.getName());
         var createInC = CTypeConversion.toCString("createJvmPeerChannel");
@@ -187,9 +181,6 @@ public final class Channel<Data extends Channel.Config> implements AutoCloseable
         var handleSigInC = CTypeConversion.toCString("(JJJ)J"); //
         ) {
       var fn = e.getFunctions();
-    if (true) {
-      return null; // crashes
-    }
       var channelClass = fn.getFindClass().call(e, classInC.get());
       assert channelClass.isNonNull() : "Class not found " + classNameWithSlashes;
       var createMethod =
@@ -198,10 +189,6 @@ public final class Channel<Data extends Channel.Config> implements AutoCloseable
       var poolClassInHotSpot = fn.getNewStringUTF().call(e, poolClassInC.get());
       var handleMethod =
           fn.getGetStaticMethodID().call(e, channelClass, handleInC.get(), handleSigInC.get());
-
-    if (true) {
-      return null; // crashes
-    }
 
       var channel = new Channel<>(id, config, e, channelClass, handleMethod);
 
