@@ -1,5 +1,6 @@
 package org.enso.jvm.channel;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
@@ -160,8 +161,14 @@ public final class Channel<Data extends Channel.Config> implements AutoCloseable
       throw new IllegalStateException("Only usable from SubstrateVM");
     }
     if (true) {
-      // works! 
-      return null; 
+        try {
+            // works! if return null;
+            // try force I/O init
+            var out = File.createTempFile("initio", ".log");
+            System.err.println("initialize I/O first: " + out);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
     }
     var e = jvm.env();
     System.err.println("jvmenv is " + e.rawValue());
