@@ -14,7 +14,7 @@ public final class YdocServerImpl extends YdocServerApi {
   public YdocServerImpl() {}
 
   @Override
-  protected AutoCloseable runYdocServer(String hostname, int port)
+  protected AutoCloseable runYdocServer(String hostname, int port, Protocol proto)
       throws WrongOption, IOException, URISyntaxException {
     // the following shall invoke:
     //   return launch(hostname, port);
@@ -44,7 +44,7 @@ public final class YdocServerImpl extends YdocServerApi {
     var impl = loader.getMember(fqn);
     assert impl != null;
     var arr = ProxyArray.fromArray(hostname, "" + port);
-    impl.invokeMember("main", arr);
+    impl.invokeMember("protoMain", proto, arr);
     return () -> {
       loader.invokeMember("close");
       ctx.close();

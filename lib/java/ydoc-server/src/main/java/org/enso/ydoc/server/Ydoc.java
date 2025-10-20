@@ -8,6 +8,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.enso.ydoc.polyfill.ParserPolyfill;
 import org.enso.ydoc.polyfill.web.WebEnvironment;
+import org.enso.ydoc.server.Main.Protocol;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.io.IOAccess;
@@ -45,6 +46,7 @@ public final class Ydoc implements AutoCloseable {
 
     private ScheduledExecutorService executor;
     private ParserPolyfill parser;
+    private Protocol protocol;
     private Context.Builder contextBuilder;
     private String hostname;
     private int port = -1;
@@ -105,6 +107,10 @@ public final class Ydoc implements AutoCloseable {
 
       return new Ydoc(executor, parser, contextBuilder, hostname, port);
     }
+
+    void protocol(Main.Protocol protocol) {
+        protocol = protocol;
+    }
   }
 
   public static Builder builder() {
@@ -136,6 +142,7 @@ public final class Ydoc implements AutoCloseable {
                   bindings.putMember("YDOC_HOST", hostname);
                   bindings.putMember("YDOC_PORT", port);
                   bindings.putMember("YDOC_LS_DEBUG", "false");
+                  bindings.putMember("protocol", protocol);
 
                   ctx.eval(ydocJs);
 

@@ -17,6 +17,10 @@ public final class Main {
   private Main() {}
 
   public static void main(String[] args) throws Exception {
+      protoMain(null, args);
+  }
+
+  public static void protoMain(Protocol p, String[] args) throws Exception {
     System.setProperty(
         "helidon.serialFilter.pattern",
         "javax.management.**;java.lang.**;java.rmi.**;javax.security.auth.Subject;!*");
@@ -25,7 +29,7 @@ public final class Main {
       var then = System.currentTimeMillis();
       var hostname = args[0];
       var port = args[1];
-      launch(hostname, port);
+      launch(p, hostname, port);
 
       var now = System.currentTimeMillis();
       var took = now - then;
@@ -33,13 +37,13 @@ public final class Main {
     } else {
       var hostname = System.getenv(ENSO_YDOC_HOST);
       var port = System.getenv(ENSO_YDOC_PORT);
-      try (var ydoc = launch(hostname, port)) {
+      try (var ydoc = launch(p, hostname, port)) {
         lock.acquire();
       }
     }
   }
 
-  private static AutoCloseable launch(String ydocHost, String ydocPort) throws IOException {
+  private static AutoCloseable launch(Protocol protocol, String ydocHost, String ydocPort) throws IOException {
     try {
       var builder = Ydoc.builder();
       if (ydocHost != null) {
@@ -49,6 +53,7 @@ public final class Main {
         var port = Integer.parseInt(ydocPort);
         builder.port(port);
       }
+      builder.protocol(protocol);
       var ydoc = builder.build();
       ydoc.start();
       return ydoc;
@@ -56,4 +61,7 @@ public final class Main {
       throw new IOException(ex);
     }
   }
+
+    private static interface Protocol {
+    }
 }

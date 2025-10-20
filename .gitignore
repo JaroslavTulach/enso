@@ -211,3 +211,5 @@ playwright/.auth/
 #########
 
 /.mailmap
+/app/ydoc-server/nbproject/private/
+/app/ydoc-shared/nbproject/private/

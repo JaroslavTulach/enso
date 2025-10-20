@@ -148,7 +148,12 @@ export class LanguageServer extends ObservableV2<Notifications & TransportEvents
   /** Create a {@link LanguageServer}. */
   constructor(
     private clientID: Uuid,
+    
+    // instead of using WebSocket here
+    // hold a reference to callbackToHandleMessagesFromYdocServer
+    // created in MainModule.scala and call directly into it
     private transport: ReconnectingWebSocketTransport,
+    
   ) {
     super()
     this.initialized = this.scheduleInitializationAfterConnect()

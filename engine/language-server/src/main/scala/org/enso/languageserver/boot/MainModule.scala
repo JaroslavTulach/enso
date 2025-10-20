@@ -501,6 +501,7 @@ class MainModule(serverConfig: LanguageServerConfig, logLevel: Level) {
     )
 
   val materializer: Materializer = Materializer.createMaterializer(system)
+/* don't start WebSocket servers
   val jsonRpcServer =
     new JsonRpcServer(
       jsonRpcProtocolFactory,
@@ -529,10 +530,12 @@ class MainModule(serverConfig: LanguageServerConfig, logLevel: Level) {
       messagesCallback
     )(system, materializer)
   log.trace("Created Binary WebSocket Server [{}]", binaryServer)
+*/
 
   private val ydoc = {
     val c = org.enso.languageserver.boot.config.ApplicationConfig.load().ydoc
-    org.enso.runner.common.YdocServerApi.launchYdocServer(c.hostname, c.port)
+    val callbackToHandleMessagesFromYdocServer = null // create handler for calls from Y.js
+    org.enso.runner.common.YdocServerApi.launchYdocServer(c.hostname, c.port, callbackToHandleMessagesFromYdocServer)
   }
 
   log.debug(
