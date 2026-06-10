@@ -19,9 +19,9 @@ import org.openide.nodes.Node;
 import org.openide.util.lookup.Lookups;
 
 final class EnsoLogicalView implements LogicalViewProvider  {
-    private final EnsoSbtProject p;
+    private final ElideProject p;
 
-    EnsoLogicalView(EnsoSbtProject p) {
+    EnsoLogicalView(ElideProject p) {
         this.p = p;
     }
 
@@ -52,13 +52,13 @@ final class EnsoLogicalView implements LogicalViewProvider  {
 
     private static final class EnsoSbtProjectNode extends AbstractNode {
 
-        private final EnsoSbtProject project;
+        private final ElideProject project;
 
-        public EnsoSbtProjectNode(EnsoSbtProject p) {
+        public EnsoSbtProjectNode(ElideProject p) {
             super(Children.create(new EnsoRoots(p), true), Lookups.fixed(p));
             this.project = p;
             setDisplayName();
-            setIconBaseWithExtension("org/enso/tools/enso4igv/enso-duke.svg");
+            setIconBaseWithExtension("org/enso/tools/enso4igv/elidelogo.svg");
         }
 
         private void setDisplayName() {
@@ -77,9 +77,9 @@ final class EnsoLogicalView implements LogicalViewProvider  {
     }
 
     private static final class EnsoRoots extends ChildFactory<SourceGroup> implements ChangeListener {
-        private final EnsoSbtProject prj;
+        private final ElideProject prj;
 
-        EnsoRoots(EnsoSbtProject project) {
+        EnsoRoots(ElideProject project) {
             this.prj = project;
         }
 

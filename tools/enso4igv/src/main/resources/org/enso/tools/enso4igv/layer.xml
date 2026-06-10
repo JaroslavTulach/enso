@@ -6,7 +6,7 @@
             <folder name="enso">
                 <attr name="displayName" bundlevalue="org.enso.tools.enso4igv.Bundle#EnsoLanguage"/>
                 <attr name="mimetype" stringvalue="application/x-enso"/>
-                <attr name="iconBase" stringvalue="org/enso/tools/enso4igv/enso.png"/>
+                <attr name="iconBase" stringvalue="org/enso/tools/enso4igv/elidelogo.png"/>
             </folder>
         </folder>
     </folder>

@@ -12,17 +12,17 @@ import org.openide.filesystems.FileObject;
 import org.openide.util.Lookup;
 import org.openide.util.lookup.Lookups;
 
-final class EnsoSbtProject implements Project {
+final class ElideProject implements Project {
     private final FileObject prj;
     private final ProjectState ps;
     private final Lookup lkp;
 
-    EnsoSbtProject(FileObject fo, ProjectState ps) {
+    ElideProject(FileObject fo, ProjectState ps) {
         this.prj = fo;
         this.ps = ps;
         this.lkp = Lookups.fixed(
             this,
-            new EnsoSbtClassPathProvider(this),
+            new ElideClassPathProvider(this),
             new EnsoLogicalView(this),
             new OwnSubproject()
         );
@@ -47,7 +47,7 @@ final class EnsoSbtProject implements Project {
             if (GraphicsEnvironment.isHeadless()) {
                 return Collections.emptySet();
             } else {
-                return Collections.singleton(EnsoSbtProject.this);
+                return Collections.singleton(ElideProject.this);
             }
         }
 
