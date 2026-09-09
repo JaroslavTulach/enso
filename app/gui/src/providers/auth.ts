@@ -1,4 +1,5 @@
 import type * as cognitoModule from '$/authentication/cognito'
+import { CLOUD_ENABLED } from '$/providers/config'
 import { useFeatureFlag } from '$/providers/featureFlags'
 import * as analytics from '$/utils/analytics'
 import { proxyRefs, type ToValue } from '$/utils/reactivity'
@@ -205,7 +206,9 @@ function createAuthStore(
 
   const usersMeQueryOptions = createUsersMeQuery(session, remoteBackend, setUsername)
 
-  const usersMeQuery = vueQuery.useQuery(usersMeQueryOptions)
+  // Never hit `users/me` when Cloud is disabled: `isCloudDataUnavailable` below short-circuits
+  // to `true` in that case without needing this query to have run (or errored) at all.
+  const usersMeQuery = vueQuery.useQuery({ ...usersMeQueryOptions, enabled: CLOUD_ENABLED })
 
   // Keyed on `email`, not `clientId`: `clientId` is the Cognito app integration ID and is
   // identical across users on the same deployment, so caching on it would surface user A's
@@ -219,6 +222,8 @@ function createAuthStore(
   }
 
   /**
+   * `true`  when Cloud is disabled entirely (`!CLOUD_ENABLED`)
+   *
    * `true` when Cognito sign-in succeeded but the subsequent `users/me` fetch failed
    * with a non-auth error. Auth (401/403) failures are owned by `useUnauthorizedRecovery`
    * and excluded here. Requires a local backend so the synthesised session has somewhere
@@ -226,6 +231,7 @@ function createAuthStore(
    * the user falls through to the existing redirect-to-login path.
    */
   const isCloudDataUnavailable = computed(() => {
+    if (!CLOUD_ENABLED) return true
     const cognitoSession = session.value
     if (!cognitoSession) return false
     if (sessionData.isLoggingOut || sessionData.isReconnectingSession) return false
@@ -338,6 +344,9 @@ function createAuthStore(
     isCloudDataUnavailable,
     waitForSession: async () => {
       await sessionData.waitForSession()
+      // `usersMeQuery` is disabled (never settles) when Cloud is off — `isCloudDataUnavailable`
+      // already resolves to `true` synchronously in that case, so there's nothing to wait for.
+      if (!CLOUD_ENABLED) return
       // Resolve once `users/me` settles, regardless of outcome — a failure switches the
       // store into the degraded-auth path rather than blocking navigation.
       try {

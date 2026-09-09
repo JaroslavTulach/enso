@@ -4,6 +4,7 @@ import { ALL_PATHS_REGEX } from '$/appUtils'
 import * as cognito from '$/authentication/cognito'
 import { AuthEvent, type ListenFunction } from '$/authentication/listen'
 import { useInitAuthService } from '$/authentication/service'
+import { CLOUD_ENABLED } from '$/providers/config'
 import { LOGOUT_EVENT } from '$/providers/session/constants'
 import * as analytics from '$/utils/analytics'
 import { proxyRefs, type ToValue } from '$/utils/reactivity'
@@ -14,6 +15,7 @@ import * as vueQuery from '@tanstack/vue-query'
 import { createGlobalState } from '@vueuse/core'
 import type { SignInOutput } from 'aws-amplify/auth'
 import type { HttpClient } from 'enso-common/src/services/HttpClient'
+import * as dateTime from 'enso-common/src/utilities/data/dateTime'
 import { unreachable } from 'enso-common/src/utilities/errors'
 import { computed, onScopeDispose, ref, toRaw, toValue, watchEffect } from 'vue'
 import { useHttpClient } from './httpClient'
@@ -22,14 +24,26 @@ import { useText } from './text'
 
 export const USER_SESSION_QUERY_KEY = ['userSession'] as const
 
+/**
+ * Mocked Cognito session used for downstream code that expects a session to exist.
+ */
+const LOCAL_SESSION_STUB: cognito.UserSession = {
+  email: 'local@localhost',
+  accessToken: '',
+  refreshToken: '',
+  refreshUrl: '',
+  expireAt: dateTime.toRfc3339(new Date('9999-12-31')),
+  clientId: 'local',
+}
+
 /** Create a query for the user session. */
 export function createSessionQuery(authService: ToValue<cognito.ISessionProvider | undefined>) {
   return vueQuery.queryOptions({
     queryKey: USER_SESSION_QUERY_KEY,
-    queryFn: async () =>
-      toValue(authService)
-        ?.userSession()
-        .catch(() => null) ?? null,
+    queryFn: async () => {
+      return (!CLOUD_ENABLED) ? LOCAL_SESSION_STUB :
+        toValue(authService)?.userSession().catch(() => null) ?? null
+    },
   })
 }
 
@@ -328,7 +342,8 @@ export function createSessionStore(
   }
 
   watchEffect(() => {
-    if (session.data.value) {
+    // No real Cognito service (and no real access token to persist) when Cloud is disabled
+    if (CLOUD_ENABLED && session.data.value) {
       // Save access token so can it be reused by backend services
       // `saveAccessToken` passes its argument through Electron IPC.
       // `toRaw` is required because `session.data.value` is a reactive `Proxy`,

@@ -29,11 +29,20 @@ export type RemoteConfig = z.infer<typeof REMOTE_CONFIG_SCHEMA>
 
 export type ConfigStore = ReturnType<typeof createConfigStore>
 
+/**
+ * Whether this build talks to Enso Cloud at all. `false` for local-only desktop use.
+ * Cognito/Amplify are never initialized when this is `false`: {@link useInitAuthService}'s
+ * Amplify config is derived from {@link ConfigStore.remoteConfig}, which stays `undefined`
+ * forever when the query below never runs.
+ */
+export const CLOUD_ENABLED = $config.CLOUD_BUILD === 'true'
+
 function createConfigStore() {
   const remoteConfigUrl = $config.API_URL ?? 'https://api.cloud.enso.org'
 
   const remoteConfig = useQuery<RemoteConfig>({
     queryKey: ['config', remoteConfigUrl],
+    enabled: CLOUD_ENABLED,
     queryFn: async ({ queryKey: [_, url] }) => {
       const response = await fetch(`${url}/${CONFIGURATION_PATH}`)
       if (!response.ok) {
@@ -91,7 +100,7 @@ function createConfigStore() {
     remoteConfig: remoteConfig.data,
     isFetching: remoteConfig.isFetching,
     isError: remoteConfig.isError,
-    waitForRemoteConfig: () => waitForData(remoteConfig),
+    waitForRemoteConfig: () => (CLOUD_ENABLED ? waitForData(remoteConfig) : undefined),
   })
 }
 
